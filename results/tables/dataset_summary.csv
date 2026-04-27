@@ -1,0 +1,4 @@
+variant,rows,columns_total,n_features,positive_rate_pct,positives,retained_leaky_cols,cols_with_any_na
+consequence,23911,66,62,14.78,3533,,0
+severity,23911,59,56,9.64,2305,,0
+szz,23911,65,62,1.24,297,,0

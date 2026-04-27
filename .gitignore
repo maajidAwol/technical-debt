@@ -1,0 +1,10 @@
+# Virtual environment (never commit)
+venv/
+
+# Raw data
+data/raw/
+
+# Python bytecode cache
+__pycache__/
+*.py[cod]
+*$py.class
