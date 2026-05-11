@@ -54,6 +54,29 @@ def run_figures() -> None:
     fig.fig_feature_ablation();           print("  - fig_feature_ablation")
     fig.fig_lopo_per_project();           print("  - fig_lopo_per_project")
 
+    # Confusion matrices from Stage 7's persisted predictions.
+    pred_path = TABLES_DIR / "within_project_predictions.parquet"
+    if pred_path.exists():
+        preds = pd.read_parquet(pred_path)
+        per_proj = fig.figure_confusion_matrices(preds)
+        if not per_proj.empty:
+            print(f"  - fig_confusion_matrices  ({len(per_proj):,} per-project rows)")
+        else:
+            print("  - fig_confusion_matrices  (no rows)")
+    else:
+        print(
+            f"  - fig_confusion_matrices  SKIPPED (predictions parquet missing: {pred_path})"
+        )
+
+    # Calibration reliability diagrams (only if Stage 7c has been run).
+    calib_path = TABLES_DIR / "calibration_predictions.parquet"
+    if calib_path.exists():
+        calib_long = pd.read_parquet(calib_path)
+        fig.figure_calibration_diagrams(calib_long)
+        print("  - fig_calibration_reliability")
+    else:
+        print("  - fig_calibration_reliability  SKIPPED (run scripts/07c_calibrate.py first)")
+
 
 def run_docs() -> None:
     print("\n>>> Stage 10.3 - Render docs/06_results.md + docs/07_discussion.md")

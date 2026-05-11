@@ -18,6 +18,7 @@ Sections
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -167,10 +168,18 @@ SEVERITY_LEAKY_FEATURES = [
 ]
 
 # Features to DROP when training on SZZ-baseline labels. The SZZ label is
-# ``(n_szz_fixes_future > 0)``; ``n_szz_inducing_past`` carries strongly
+# ``(n_szz_fixes_future > 0)``; ``szz_inducing_pre*`` carries strongly
 # correlated signal (files previously caught by SZZ are usually caught
-# again), so we drop it to keep SZZ predictions non-trivial.
-SZZ_LEAKY_FEATURES: list[str] = []  # features module currently carries no SZZ features
+# again), so we drop it to keep SZZ predictions non-trivial. This is an
+# *autocorrelation guard*, not literal label-leakage: the construct is
+# legitimately distinct (past inducing vs future fixing) but in
+# practice highly predictive in a way that trivialises the SZZ
+# benchmark. Same discipline as the original ``n_szz_inducing_past``
+# convention.
+SZZ_LEAKY_FEATURES: list[str] = [
+    "szz_inducing_pre",
+    "szz_inducing_pre_365d",
+]
 
 # Historical metrics from GIT_COMMITS and GIT_COMMITS_CHANGES up to snapshot t.
 # Note: TD Dataset v2.0 does not expose a change-type column, so ADD / MODIFY /
@@ -192,6 +201,39 @@ HISTORICAL_METRICS = [
     "avg_change_size_pre",
     "max_single_commit_churn_pre",
     "std_change_size_pre",
+]
+
+# Co-change graph features (Jiang et al. 2024/2025; proposal section 2.2).
+# Built per project at snapshot ``t`` from GIT_COMMITS_CHANGES with
+# ``DATE <= t``. See ``src/features/graph_features.py`` for definitions.
+GRAPH_FEATURES = [
+    "cocg_degree",
+    "cocg_strength_sum",
+    "cocg_strength_mean",
+    "cocg_strength_max",
+    "cocg_betweenness",
+    "cocg_closeness",
+    "cocg_clustering_coef",
+    "cocg_pagerank",
+    "cocg_neighbour_count_30d",
+    "cocg_neighbour_count_90d",
+]
+
+# Pre-snapshot defect-history features (Hassan 2009, Kamei 2013, proposal
+# Table 1 "Prior Defect Signals (optional)"). All thresholds are
+# ``<= t`` to preserve temporal honesty. See
+# ``src/features/priordefect_features.py``.
+PRIOR_DEFECT_FEATURES = [
+    "bugfix_commits_pre",
+    "bugfix_commits_pre_30d",
+    "bugfix_commits_pre_90d",
+    "bugfix_commits_pre_365d",
+    "time_since_last_bugfix_days",
+    "szz_inducing_pre",
+    "szz_inducing_pre_365d",
+    "linked_jira_issues_pre",
+    "linked_jira_bugs_pre",
+    "bug_density_pre",
 ]
 
 # ---------------------------------------------------------------------------
@@ -274,3 +316,69 @@ COST_EFFECTIVENESS_AT = 0.20        # CE @ top-20% (prioritization metric)
 
 # Variant keys used across pipeline scripts.
 LABEL_VARIANTS = ("consequence", "severity", "szz")
+
+# ---------------------------------------------------------------------------
+# 8. Refined Extended enhancement settings (2026-04-27)
+# ---------------------------------------------------------------------------
+# Hyperparameter tuning (Stage 7b). Optuna random search optimising
+# PR-AUC with stratified inner CV; PR-AUC is the recommended objective
+# under heavy class imbalance (Saito & Rehmsmeier 2015).
+TUNING_TRIALS = 30
+TUNING_INNER_CV_FOLDS = 5
+TUNING_OBJECTIVE = "pr_auc"
+
+# Probability calibration (Stage 7c). CalibratedClassifierCV uses an
+# internal cross-fitting pass on the training fold of the outer CV, so
+# the calibration data is never seen at evaluation time.
+CALIBRATION_METHODS = ("platt", "isotonic")
+CALIBRATION_INNER_CV_FOLDS = 5
+
+# Resampling comparison (Stage 7d). Compares SMOTE oversampling
+# (training fold only) against the established class_weight="balanced"
+# strategy used everywhere else.
+RESAMPLING_STRATEGIES = ("class_weight", "smote")
+
+# Temporal within-project CV (Stage 7e). Two snapshot percentiles per
+# project: train at T1, test at T2. Only projects with sufficient
+# pre-T1 history qualify (uses MIN_PRE_SNAPSHOT_COMMITS x 2 guard).
+TEMPORAL_T1_PERCENTILE = 40
+TEMPORAL_T2_PERCENTILE = 70
+
+# Significance testing (Stage 7 inspect block). 10000 bootstrap
+# resamples for CIs; Wilcoxon paired tests with Bonferroni correction
+# applied within each (variant, scope) family.
+BOOTSTRAP_RESAMPLES = 10000
+
+# ---------------------------------------------------------------------------
+# 9. Parallelism (2026-04-29 lossless overhaul)
+# ---------------------------------------------------------------------------
+# Stage 5 (feature engineering) and Stage 7e (temporal T1->T2) are
+# embarrassingly parallel across projects: each project's features are
+# computed from a self-contained slice of the cleaned dataframes with
+# no shared state. We parallelise these stages with joblib's loky
+# (process-based) backend.
+#
+# Other stages (7, 7b, 7c, 7d, 8) keep their outer loops sequential
+# because their inner model fits already use ``n_jobs=-1`` for tree
+# ensembles - parallelising the outer loop too would oversubscribe
+# the CPU and degrade total throughput.
+#
+# The default leaves slack for the OS / IDE / browser. Override with
+# the ``TD_N_JOBS`` environment variable when running on a dedicated
+# machine: e.g. ``set TD_N_JOBS=8`` on PowerShell.
+def _resolve_n_jobs(default: int | None = None) -> int:
+    env = os.environ.get("TD_N_JOBS")
+    if env is not None:
+        try:
+            v = int(env)
+            return max(1, v)
+        except ValueError:
+            pass
+    if default is not None:
+        return default
+    cpu = os.cpu_count() or 4
+    return max(1, cpu // 2)
+
+
+STAGE5_N_JOBS = _resolve_n_jobs()
+TEMPORAL_N_JOBS = _resolve_n_jobs()

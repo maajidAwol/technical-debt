@@ -584,3 +584,264 @@ can be copied directly; Chapter 7 uses the scaffold as a starting
 structure with SHAP-backed answers to RQ1-3 and the five validity
 threats documented above.
 
+---
+
+## 2026-04-27 | Refined Extended enhancement package (Colab notebooks, proposal-alignment audit, advanced experiments)
+
+This is a single consolidated entry covering the methodological journey
+from the Stage-10 baseline (2026-04-23) through the proposal-alignment
+audit (2026-04-26) and the "Refined Extended" enhancement package
+shipped on 2026-04-27. The earlier daily entries were folded into this
+summary so the log records *one* coherent narrative for the thesis
+methodology chapter.
+
+**Decision**: Promote the local-only Stage 1-10 pipeline into a
+fully-reproducible Colab notebook + an *enhanced* experimental layer
+(co-change graph features, prior-defect features, SVM, hyperparameter
+tuning, probability calibration, SMOTE comparison, temporal T1->T2
+within-project split, bootstrap CIs + paired Wilcoxon significance
+testing, confusion-matrix + reliability-diagram figures) without
+breaking any existing artefact and *without* introducing hand-written
+thesis prose into the auto-generated docs.
+
+### Phase A | Reproducible Colab notebooks (2026-04-23 -> 2026-04-26)
+
+- `notebooks/_build_notebook.py` programmatically generates **two**
+  notebooks from a single source of truth:
+  - `notebooks/td_pipeline_colab.ipynb` (writefile variant): every
+    `src/` module is materialised with `%%writefile` so the on-disk
+    repository layout is reproduced byte-identically inside Colab.
+    This is the citation-grade thesis-replication notebook.
+  - `notebooks/td_pipeline_colab_standalone.ipynb` (demo variant):
+    every `src/` module is *inlined* as a regular code cell; internal
+    `from config import ...` / `from src... import ...` lines are
+    stripped because the names are already in the notebook namespace.
+    Edit-and-rerun any cell to experiment without restarting the
+    kernel - ideal for demos.
+- Drive-mount, dependency check, deterministic seeds, env receipt,
+  schema-fingerprinted SHA-256, per-stage runtime accumulator, and a
+  zip-and-copy-back-to-Drive finalisation are baked in.
+- **Issue & fix (2026-04-25)**: Stage 1 disconnected the Colab
+  runtime when reading 1.5 GB SQLite over the FUSE-mounted Google
+  Drive (FUSE has poor random-access performance). **Fix**: Cell E
+  now copies / symlinks `td_V2.db` from Drive into Colab's local
+  scratch (`/content/data/raw/td_V2.db`) before any reader runs, and
+  the env receipt records the SHA-256 prefix of the first 64 MiB so
+  the user can detect Drive sync corruption.
+
+### Phase B | Proposal-alignment audit (2026-04-26)
+
+After running the baseline Stage-7 within-project CV (consequence:
+F1=0.58 / PR-AUC=0.66 / CE@20=0.70 with LightGBM; severity: F1=0.70
+/ PR-AUC=0.82 / CE@20=0.97 - near-tautological by design; SZZ:
+F1=0.27 / PR-AUC=0.23 / CE@20=0.91), an audit checked every claim of
+the updated MSc Research Proposal against the implemented pipeline.
+
+**Findings**:
+1. Proposal Section 3.5 commits to **DT, RF, SVM, GBM** comparison;
+   the baseline Stage-7 omitted SVM. (RBF-SVM was pre-coded in
+   `_make_model` but never activated because of the O(N^2) cost.)
+2. Proposal Section 3.4 mentions **temporal cross-validation** as a
+   robustness check; the baseline only had 10-fold and LOPO CV, no
+   per-project T1->T2 split.
+3. Proposal Section 3.6 lists **statistical significance testing**
+   as part of evaluation; the baseline reported point estimates only,
+   without confidence intervals or pairwise tests.
+4. Proposal Section 3.3 mentions **co-change/dependency features**
+   but the baseline shipped only static SonarQube and historical Git
+   features.
+5. Proposal Section 3.2 mentions **SZZ-derived defect history** as a
+   feature family in addition to its use as a label; the baseline
+   used SZZ only as a label source.
+6. Proposal Section 3.6 mentions **calibration / threshold-aware
+   evaluation**; baseline reported only F1 / PR-AUC / CE@20.
+7. Proposal Section 3.4 implies **rigorous hyperparameter search**;
+   baseline used hand-picked defaults.
+8. Proposal Section 3.4 mentions **class imbalance handling**;
+   baseline used `class_weight="balanced"` only - no comparison
+   against synthetic-minority methods.
+
+This produced the "Refined Extended" enhancement package finalised
+in `td-thorough-enhancement_b9aeb969.plan.md`.
+
+### Phase C | Refined Extended enhancement package (2026-04-27)
+
+**New feature families** (per-basename, snapshot-aware, leakage-free):
+- `src/features/graph_features.py` - co-change graph centrality
+  (degree, weighted strength, betweenness, closeness, clustering,
+  PageRank, recency-weighted neighbour counts) computed by building
+  a weighted undirected co-change graph from pre-snapshot
+  `GIT_COMMITS_CHANGES` records (each commit creates a clique on its
+  set of touched basenames). networkx>=3.2 added to requirements.
+- `src/features/priordefect_features.py` - pre-snapshot bug-fix
+  commit counts, SZZ-induced commits at this basename, JIRA-linked
+  issue counts at this basename, and time-since-last-defect signals.
+  All multi-step joins are restricted to events with
+  `induce_date < t` / `fix_date < t` / `CREATION_DATE < t` so the
+  features can never leak the future label window. SZZ-leaky columns
+  added to `SZZ_LEAKY_FEATURES` so the leakage audit drops them
+  automatically when the SZZ variant is being trained.
+
+**New model layer**:
+- SVM activated in `scripts/07_train.py` (within-project only).
+  *Refinement #3 (2026-04-27)*: SVM is **deliberately excluded** from
+  `scripts/08_lopo.py` because RBF-SVM at 22-fold LOPO would cost
+  ~66 min per variant on the Colab budget. The proposal commitment
+  to compare DT/RF/SVM/GBM is satisfied at within-project scope.
+- `src/models/tuning.py` - Optuna-driven search (TPE sampler, PR-AUC
+  objective on `TUNING_INNER_CV_FOLDS=5` inner stratified folds,
+  `TUNING_TRIALS=40` per (variant, model)). Wired into
+  `scripts/07b_tune.py` which writes `tuned_params.json` and
+  re-evaluates the tuned configuration on the canonical 10-fold outer
+  CV (`within_project_summary_tuned.csv`).
+- `src/models/temporal.py` - per-project T1 (40th percentile commit
+  date) -> T2 (70th percentile) split with feature/label rebuild at
+  both snapshots and column alignment to handle SonarQube rules
+  appearing only at T2. Driven by `scripts/07e_temporal.py`. Run on
+  the consequence variant (the only one whose label depends on a
+  forward-looking window).
+- `calibrated_kfold_cv` added to `src/models/train.py` wrapping
+  `CalibratedClassifierCV` (Platt + isotonic) with disjoint inner
+  calibration data. `_resample_smote` helper plus `use_smote` flag
+  on `stratified_kfold_cv` enables train-fold-only SMOTE (test fold
+  never resampled). Per-fold prediction persistence
+  (`persist_predictions=True`) writes `(variant, model, fold,
+  project_id, row_idx, y_true, y_score, y_pred)` to
+  `within_project_predictions.parquet` for downstream confusion
+  matrices and reliability diagrams. The same pattern is mirrored in
+  `src/models/cross_project.lopo_cv` -> `lopo_predictions.parquet`.
+
+**New analysis layer**:
+- `src/analysis/significance.py`:
+  - `bootstrap_confidence_intervals()` - 10,000 resamples
+    (`BOOTSTRAP_RESAMPLES`) per (variant, model) cell, BCa-style
+    percentile CIs at 95%, deterministic seed.
+  - `pairwise_wilcoxon()` - paired signed-rank tests across model
+    pairs within each variant on per-fold (within-project) or
+    per-project (LOPO) metrics, Bonferroni-corrected per metric.
+  - `attach_ci_to_summary()` - emits `..._with_ci.csv` shaped
+    identically to the existing summaries plus low/high columns.
+- `src/analysis/ablation.py` extended: the `GROUPS` dictionary now
+  resolves the new `cocg` (co-change graph) and `prior_defect`
+  feature families dynamically based on prefix conventions
+  (`cocg_*`, `prior_*`).
+
+**New reporting layer**:
+- `src/reporting/figures.py`:
+  - `figure_calibration_diagrams(calib_long_df)` - 3-row x N-col
+    grid of reliability diagrams comparing uncalibrated / Platt /
+    isotonic per (variant, model). Saved to `fig_calibration.png/.pdf`.
+  - `figure_confusion_matrices(predictions_df)` - 3-variant x 6-model
+    grid (or whichever models are present) aggregated across folds,
+    plus a `per_project_errors.csv` table for the discussion section.
+- `src/reporting/render.py` extended: `render_results()` now appends
+  hyperparameter-tuning, bootstrap-CI, pairwise-significance,
+  calibration-sweep, SMOTE-comparison, temporal-validation and
+  confusion-matrix sections to `docs/06_results.md` if and only if
+  the corresponding artefacts exist on disk (so the renderer
+  degrades gracefully when an enhancement stage was skipped).
+  `render_discussion_scaffold()` gains a "Refined Extended
+  enhancements" section. **No hand-written thesis prose is added.**
+- `scripts/10_report.py` conditionally calls the two new figure
+  functions if their input parquets are available.
+
+**New driver scripts** (each independently runnable; each idempotent
+and skips work when its outputs already exist):
+- `scripts/07b_tune.py`  - Stage 7b - hyperparameter tuning
+- `scripts/07c_calibrate.py` - Stage 7c - probability calibration
+- `scripts/07d_resample.py` - Stage 7d - SMOTE vs class_weight
+- `scripts/07e_temporal.py` - Stage 7e - T1 -> T2 temporal split
+
+**Notebook integration**: `notebooks/_build_notebook.py` registers
+all five new modules in `SRC_MODULES`, adds Stage 7b/7c/7d/7e cells
+with their inspect counterparts, and wires significance-testing +
+confusion-matrix outputs into Stages 7, 8 and 10. Re-running the
+builder regenerates both notebooks (98 cells each, ~350 KiB).
+
+### Configuration consolidation
+
+`config.py` extended with:
+- `GRAPH_FEATURES`, `PRIOR_DEFECT_FEATURES` - feature catalogues used
+  by the leakage audit and ablation grouping.
+- `TUNING_TRIALS`, `TUNING_INNER_CV_FOLDS`, `TUNING_OBJECTIVE`,
+  `CALIBRATION_METHODS`, `CALIBRATION_INNER_CV_FOLDS`.
+- `TEMPORAL_T1_PERCENTILE`, `TEMPORAL_T2_PERCENTILE`.
+- `BOOTSTRAP_RESAMPLES` (default 10,000).
+
+`SZZ_LEAKY_FEATURES` widened to include the new prior-defect SZZ
+columns so that the leakage audit (Stage 6) automatically drops them
+when training the SZZ variant.
+
+### Alternatives considered (per enhancement)
+
+- **Co-change features**: full architectural-dependency graph parsed
+  from import statements (rejected - requires source checkout per
+  project, breaks the pure-DB pipeline; co-change is a strong proxy
+  in the TD literature, e.g. D'Ambros et al. 2010).
+- **Hyperparameter search**: exhaustive grid (rejected - 6 models *
+  3 variants * full grid would exceed 30 h on Colab); Bayesian
+  optimisation via skopt (rejected - Optuna's TPE is more battle-
+  tested and integrates cleanly with sklearn).
+- **Calibration**: isotonic only (rejected - Platt is the
+  literature-standard baseline and is informative on small folds);
+  custom temperature scaling (rejected - overkill for two-class
+  output; CalibratedClassifierCV is a one-line drop-in).
+- **Resampling**: ADASYN, SMOTE-NC, random oversampling (rejected -
+  SMOTE is the canonical comparator against `class_weight` in the
+  defect-prediction literature; the additional variants would dilute
+  the comparison).
+- **Temporal split**: 50/50 split, expanding window (rejected -
+  40th/70th percentile follows Falessi et al. 2020 and gives a
+  meaningful 30%-of-history forecast horizon at most projects).
+- **Significance testing**: paired t-test (rejected - per-fold
+  metrics are not normally distributed; Wilcoxon signed-rank is the
+  rank-based non-parametric counterpart that Demsar 2006 recommends
+  for this setting); FDR correction (rejected - we only have ~10-15
+  pairwise comparisons per variant; Bonferroni is conservative but
+  appropriate at this scale).
+- **Documentation strategy**: per-stage incremental log entries
+  (rejected - the user explicitly requested a *single* consolidated
+  entry covering the journey, to avoid log fragmentation across the
+  Phase-A/B/C work).
+
+### Verification
+
+- Smoke test: `python -c "import config; import src.features.graph_features; ..."` -
+  all 5 new modules + 4 modified ones import cleanly with the
+  pinned dependency set (networkx, optuna, imbalanced-learn).
+- Notebook builder: `python notebooks/_build_notebook.py` writes
+  both notebooks (98 cells, 350 KiB each) without error.
+- Lint: ReadLints sweep on all 21 edited files reports only 3 pre-
+  existing basedpyright resolver warnings on numpy/pandas imports
+  (environment-only, no functional impact).
+
+### Proposal sections covered
+
+3.2 (data), 3.3 (features), 3.4 (modelling), 3.5 (evaluation),
+3.6 (validity & reporting). Every claim in Sections 3.4-3.6 of the
+updated proposal now has a corresponding code path and artefact.
+
+### Impact on paper
+
+- Methodology Chapter 3 gains four subsections - "Co-change graph
+  features", "Prior-defect history features", "Hyperparameter tuning
+  protocol", and "Temporal within-project validation" - each with a
+  paragraph derivable from the corresponding `src/` module
+  docstring.
+- Results Chapter 6 (auto-generated `docs/06_results.md`) gains
+  seven new sections - tuning, bootstrap CIs, pairwise significance,
+  calibration sweep, SMOTE comparison, temporal validation,
+  confusion matrices - which stay in lock-step with the artefacts
+  whenever the renderer is re-run.
+- Discussion Chapter 7 (auto-generated scaffold
+  `docs/07_discussion.md`) gains a "Refined Extended enhancements"
+  scaffold section that the author fills in with the qualitative
+  reading of the new tables.
+- Threats to validity gain three new entries: (a) co-change graph
+  is project-specific (no inter-project edges); (b) Optuna's TPE
+  optimises PR-AUC, which may bias toward recall-heavy models;
+  (c) calibration assumes the test fold's class distribution is
+  representative.
+- Reproducibility appendix unchanged in spirit - the Colab notebook
+  workflow now covers every enhancement stage end-to-end.
+

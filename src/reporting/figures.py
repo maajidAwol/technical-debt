@@ -270,3 +270,172 @@ def fig_lopo_per_project() -> None:
     ax.set_title("LOPO F1 distribution per variant (best model per variant, across 22 projects)")
     ax.grid(axis="y", linestyle=":", alpha=0.5)
     _save(fig, "fig_lopo_per_project")
+
+
+# ---------------------------------------------------------------------------
+# 8. Calibration reliability diagrams (Stage 7c)
+# ---------------------------------------------------------------------------
+def figure_calibration_diagrams(calib_long_df: pd.DataFrame, n_bins: int = 10) -> None:
+    """Reliability diagrams comparing pre- vs post-calibration predictions.
+
+    ``calib_long_df`` is the per-fold long-form table emitted by
+    :func:`src.models.train.calibrated_kfold_cv` augmented with the
+    uncalibrated baseline rows (typically prepended in the Stage 7c
+    driver). Expected columns: ``variant``, ``model``, ``method``
+    (one of ``"uncalibrated" | "platt" | "isotonic"``),
+    ``y_true`` (list), ``y_score`` (list).
+
+    One panel per (variant, model). All three methods are overlaid
+    on the same axes.
+    """
+    df = calib_long_df.copy()
+
+    # Concatenate per-fold lists so we plot a single reliability curve
+    # per (variant, model, method) using all 10 folds combined.
+    grouped = df.groupby(["variant", "model", "method"], as_index=False).agg(
+        y_true=("y_true", lambda s: np.concatenate([np.asarray(x) for x in s])),
+        y_score=("y_score", lambda s: np.concatenate([np.asarray(x) for x in s])),
+    )
+
+    method_palette = {
+        "uncalibrated": "#7f7f7f",
+        "platt": "#1f77b4",
+        "isotonic": "#d62728",
+    }
+    method_marker = {"uncalibrated": "o", "platt": "s", "isotonic": "^"}
+
+    pairs = grouped[["variant", "model"]].drop_duplicates().reset_index(drop=True)
+    n_pairs = len(pairs)
+    if n_pairs == 0:
+        return
+
+    cols = min(3, n_pairs)
+    rows = int(np.ceil(n_pairs / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(4.5 * cols, 3.8 * rows), squeeze=False)
+
+    bins = np.linspace(0.0, 1.0, n_bins + 1)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    for idx, (_, pair) in enumerate(pairs.iterrows()):
+        ax = axes[idx // cols][idx % cols]
+        sub = grouped[(grouped["variant"] == pair["variant"]) & (grouped["model"] == pair["model"])]
+
+        for _, row in sub.iterrows():
+            y_t = np.asarray(row["y_true"])
+            y_s = np.asarray(row["y_score"])
+            if len(y_t) == 0:
+                continue
+            bin_ids = np.digitize(y_s, bins[1:-1], right=False)
+            xs, ys = [], []
+            for b in range(n_bins):
+                mask = bin_ids == b
+                if not mask.any():
+                    continue
+                xs.append(float(np.mean(y_s[mask])))
+                ys.append(float(np.mean(y_t[mask])))
+            ax.plot(
+                xs,
+                ys,
+                marker=method_marker.get(row["method"], "o"),
+                color=method_palette.get(row["method"], "#444"),
+                label=row["method"],
+                linewidth=1.5,
+                markersize=5,
+            )
+        ax.plot([0, 1], [0, 1], linestyle="--", color="black", linewidth=0.8, label="perfect")
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_xlabel("Mean predicted probability")
+        ax.set_ylabel("Empirical positive rate")
+        ax.set_title(f"{pair['variant']} / {pair['model']}", fontsize=10)
+        ax.grid(linestyle=":", alpha=0.5)
+        ax.legend(loc="upper left", fontsize=7)
+
+    # Hide unused axes
+    for k in range(n_pairs, rows * cols):
+        axes[k // cols][k % cols].axis("off")
+
+    fig.suptitle("Probability calibration reliability diagrams (per (variant, model), 10 outer folds combined)", y=1.02, fontsize=11)
+    _save(fig, "fig_calibration_reliability")
+
+
+# ---------------------------------------------------------------------------
+# 9. Confusion matrices (Stage 10 reporting)
+# ---------------------------------------------------------------------------
+def figure_confusion_matrices(predictions_df: pd.DataFrame) -> pd.DataFrame:
+    """3-variant x 6-model grid of within-project confusion matrices.
+
+    Aggregates fold-level predictions over all folds for each
+    (variant, model) cell. Returns the per-project errors DataFrame
+    that the Stage-10 driver writes to ``per_project_errors.csv``.
+
+    ``predictions_df`` is expected to be the output of
+    :func:`src.models.train.stratified_kfold_cv` with
+    ``persist_predictions=True``, i.e. columns
+    ``variant, model, fold, project_id, y_true, y_score, y_pred``.
+    """
+    df = predictions_df.copy()
+    if df.empty:
+        return pd.DataFrame()
+
+    variants_order = ["consequence", "severity", "szz"]
+    variants_present = [v for v in variants_order if v in df["variant"].unique()]
+    models_present = sorted(df["model"].unique().tolist())
+
+    rows = len(variants_present)
+    cols = len(models_present)
+    fig, axes = plt.subplots(rows, cols, figsize=(2.5 * cols + 1.0, 2.4 * rows + 0.5), squeeze=False)
+
+    for i, variant in enumerate(variants_present):
+        for j, model in enumerate(models_present):
+            ax = axes[i][j]
+            sub = df[(df["variant"] == variant) & (df["model"] == model)]
+            if sub.empty:
+                ax.axis("off")
+                continue
+            y_t = sub["y_true"].astype(int).values
+            y_p = sub["y_pred"].astype(int).values
+            tn = int(((y_t == 0) & (y_p == 0)).sum())
+            fp = int(((y_t == 0) & (y_p == 1)).sum())
+            fn = int(((y_t == 1) & (y_p == 0)).sum())
+            tp = int(((y_t == 1) & (y_p == 1)).sum())
+            cm = np.array([[tn, fp], [fn, tp]])
+            sns.heatmap(
+                cm,
+                annot=True,
+                fmt="d",
+                cmap="Blues",
+                ax=ax,
+                cbar=False,
+                xticklabels=["pred 0", "pred 1"],
+                yticklabels=["true 0", "true 1"],
+                annot_kws={"fontsize": 8},
+            )
+            ax.set_title(f"{variant}\n{model}", fontsize=8)
+            ax.tick_params(labelsize=7)
+
+    fig.suptitle(
+        "Confusion matrices (within-project 10-fold CV, predictions concatenated)", y=1.02, fontsize=11
+    )
+    _save(fig, "fig_confusion_matrices")
+
+    # Per-project errors table (FP, FN counts per project x variant x model)
+    per_proj = (
+        df.groupby(["variant", "model", "project_id"])
+        .apply(
+            lambda s: pd.Series(
+                {
+                    "n": len(s),
+                    "tp": int(((s["y_true"] == 1) & (s["y_pred"] == 1)).sum()),
+                    "fp": int(((s["y_true"] == 0) & (s["y_pred"] == 1)).sum()),
+                    "fn": int(((s["y_true"] == 1) & (s["y_pred"] == 0)).sum()),
+                    "tn": int(((s["y_true"] == 0) & (s["y_pred"] == 0)).sum()),
+                }
+            ),
+            include_groups=False,
+        )
+        .reset_index()
+    )
+    per_proj["error_rate"] = ((per_proj["fp"] + per_proj["fn"]) / per_proj["n"]).round(4)
+    per_proj.to_csv(TABLES_DIR / "per_project_errors.csv", index=False)
+    return per_proj

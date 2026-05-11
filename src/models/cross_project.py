@@ -37,10 +37,12 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from config import (  # noqa: E402
     COST_EFFECTIVENESS_AT,
     PROCESSED_DATA_DIR,
+    TABLES_DIR,
 )
 from src.models.train import (  # noqa: E402
     KEY_COLS,
     LABEL_COL,
+    _append_predictions_parquet,
     _cost_effectiveness_at_k,
     _make_model,
     _metric_row,
@@ -62,15 +64,23 @@ class LopoFoldResult:
 def lopo_cv(
     variant: str,
     model_name: str,
+    *,
+    persist_predictions: bool = False,
 ) -> list[LopoFoldResult]:
     """Run LOPO CV for one ``(variant, model)`` pair.
 
     Returns one result per held-out project. Projects where the
     training set contains no positive labels are skipped (degenerate).
+
+    If ``persist_predictions=True``, per-row predictions for every
+    held-out project are appended to
+    ``TABLES_DIR/lopo_predictions.parquet`` for downstream significance
+    testing and confusion-matrix figures.
     """
     X, y, proj = load_variant_matrix(variant)
     projects = sorted(proj.unique())
     out: list[LopoFoldResult] = []
+    pred_rows: list[dict] = []
 
     for held_out in projects:
         te_mask = (proj == held_out).values
@@ -107,6 +117,28 @@ def lopo_cv(
                 metrics=metrics,
             )
         )
+
+        if persist_predictions:
+            te_idx = np.where(te_mask)[0]
+            for k, row_idx in enumerate(te_idx):
+                pred_rows.append(
+                    {
+                        "variant": variant,
+                        "model": model_name,
+                        "held_out_project": held_out,
+                        "row_idx": int(row_idx),
+                        "y_true": int(y_te[k]),
+                        "y_score": float(proba[k]),
+                        "y_pred": int(pred[k]),
+                    }
+                )
+
+    if persist_predictions and pred_rows:
+        _append_predictions_parquet(
+            TABLES_DIR / "lopo_predictions.parquet",
+            pd.DataFrame(pred_rows),
+        )
+
     return out
 
 

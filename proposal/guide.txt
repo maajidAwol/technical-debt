@@ -1,0 +1,1152 @@
+“University for Industry” 
+Addis Ababa Science and Technology University 
+Office of Director for Graduate Programs 
+Guideline for Submission and 
+Approval of Graduate 
+Research Proposal, Thesis and 
+Dissertation 
+December 2018 
+Addis Ababa, Ethiopia 
+Prepared by: 
+Dawit Burusie (PhD), Director for Graduate Programs 
+Girma Gonfa (PhD), Director, Research Directorate 
+Abera Belay (PhD), Associate Dean for Graduate Programs, CAS 
+Samson Mekbib (PhD), Associate Dean for Graduate Programs, CEME 
+List of Abbreviations and Acronyms 
+AC 
+BoE 
+CAS 
+CEME 
+DGC 
+DGP 
+Academic Commission 
+Board of Examiners 
+College of Applied Sciences 
+College of Electrical and Mechanical Engineering 
+Departmental Graduate Committee 
+Director for Graduate Programs 
+Table of Contents 
+List of Abbreviations and Acronyms ........................................................................... iii 
+1. Introduction ................................................................................................................1 
+2. Preparation and Approval of Graduate Research Proposals ......................................2 
+2.1. General Background ........................................................................................... 2 
+2.2. Procedure for Preparation and Approval of Graduate Research Proposals ........ 2 
+2.3. Structure and Contents of Graduate Research Proposal ..................................... 4 
+2.3.1. Title Page ..................................................................................................... 5 
+2.3.2. Approval Page .............................................................................................. 5 
+2.3.3. Table of Contents ......................................................................................... 5 
+2.3.4. List of Tables ............................................................................................... 6 
+2.3.5. List of Figures .............................................................................................. 6 
+2.3.6. List of Abbreviations and Acronyms ........................................................... 7 
+2.3.7. Introduction .................................................................................................. 7 
+2.3.8. Related Literature Review ........................................................................... 7 
+2.3.9. Research Methodology ................................................................................ 8 
+2.3.10. Work Schedule and Cost Breakdown ........................................................ 8 
+2.3.11. References .................................................................................................. 9 
+3. Preparation and Approval of Thesis and Dissertation .............................................10 
+3.1. Procedure for Submission and Approval of Thesis .......................................... 10 
+3.2. Contents of Thesis............................................................................................. 12 
+3.2.1. Cover Page ................................................................................................. 13 
+3.2.2. Title Page ................................................................................................... 13 
+3.2.3. Approval Page ............................................................................................ 14 
+3.2.4. Declaration Page ........................................................................................ 14 
+3.2.5. Dedication (optional) ................................................................................. 14 
+3.2.6. Abstract ...................................................................................................... 14 
+3.2.7. Acknowledgments...................................................................................... 15 
+3.2.8. Table of Contents ....................................................................................... 15 
+3.2.9. List of Abbreviations and Acronyms ......................................................... 16 
+3.2.10. List of Tables ........................................................................................... 16 
+3.2.11. List of Figures .......................................................................................... 16 
+3.2.12. Text of Thesis .......................................................................................... 16 
+3.2.13. References ................................................................................................ 17 
+3.2.14. Appendices ............................................................................................... 17 
+3.2.15. List of Publications .................................................................................. 18 
+4. General Style and Formatting ..................................................................................19 
+4.1. Paper Size and Margins .................................................................................... 19 
+4.2. Font Type and Size ........................................................................................... 19 
+4.3. Spacing .............................................................................................................. 19 
+4.4. Pagination ......................................................................................................... 19 
+4.5. Reference Styles and Formats ........................................................................... 20 
+Bibliography ................................................................................................................20 
+Appendix 1: Format Specifications and Sample Templates for Preliminary Pages of 
+Proposals ......................................................................................................................21 
+Title Page Format Specifications for Proposals ....................................................... 22 
+Sample Title Page for Master’s Thesis Proposal ..................................................... 23 
+Sample Title Page for PhD Dissertation Proposal ................................................... 24 
+Approval Page .......................................................................................................... 25 
+Appendix 2: Format Specifications and Sample Pages for Preliminary Pages of 
+Master’s Thesis ............................................................................................................26 
+Spine and Cover Page Format Specifications for Master’s Thesis .......................... 27 
+Title Page Format Specifications for Master’s Thesis ............................................. 28 
+Sample Title Page for Master’s Thesis .................................................................... 29 
+Sample Declaration Page for Master’s Thesis ......................................................... 30 
+Sample Approval Page for Master’s Thesis ............................................................. 31 
+Appendix 3: Format Specifications and Sample Pages for Preliminary Pages 
+Dissertation ..................................................................................................................32 
+Spine and Cover Page Format Specifications for PhD Dissertation ........................ 33 
+Title Page Format Specifications for PhD Dissertation ........................................... 33 
+Sample Title Page for PhD Dissertation .................................................................. 33 
+Sample Declaration Page for PhD Dissertation ....................................................... 33 
+Sample Approval Page for PhD Dissertation ........................................................... 33 
+Appendix 4: Flowchart of Master’s and PhD Proposals Submission and Approval 
+Processes ......................................................................................................................33 
+Appendix 5: Flowchart of Thesis/Dissertation Submission and Approval Processes .33 
+ 
+1. Introduction 
+This document has been prepared to provide guidelines for writing graduate research 
+proposals, Master’s thesis and PhD dissertation at Addis Ababa Science and 
+Technology University (AASTU). The document also aims in providing the necessary 
+information regarding integrity in research, thesis or dissertation submission and 
+approval procedures.  
+It is the student’s responsibility to read and fulfill the requirements presented here and 
+to submit a document of high quality. Proposals, Theses and Dissertations that do not 
+fully comply with this document shall not be accepted. Correct grammar, punctuation, 
+and spelling should always be used, and these aspects are the responsibility of the 
+student. Students should consult their respective department and advisors for specific 
+content requirements. 
+All students have the responsibility to conduct and report the results of their research 
+in an open and ethical manner. A thesis/dissertation represents the culmination of 
+years of academic preparation and uniquely expresses a student’s training, skills, and 
+ideas. A thesis/dissertation therefore deserves the student’s greatest effort and, as with 
+all scholarly work, demands compliance with the highest ethical standards. Ethical 
+misconduct in this regard may lead to severe consequences including complete 
+rejection of the thesis/dissertation.  
+Ethical misconduct in research is any “fabrication, falsification and plagiarism in 
+proposing, conducting or reporting research or other scholarly activities”. Fabricating 
+research findings refers to making up results, and falsifying research results refers to 
+altering, misrepresenting, or selectively reporting findings. Each of these acts violates 
+the integrity of the research process and constitutes a serious breach of accepted 
+ethical standards. Ethical research practice therefore requires that students at all stages 
+of the research process conduct their research in an open and honest manner.  
+1 
+2. Preparation and Approval of Graduate Research Proposals 
+2.1. General Background 
+A graduate research proposal is an outline of proposed research work that is designed 
+to: 
+ Define a clear question/hypothesis, set objectives and approach to answering it 
+ Explain how it adds to, develops (or challenges) existing literature in the field 
+ Highlight its originality and significance 
+Graduate students should begin investigating potential research areas and discussing 
+the feasibility of possible research work with appropriate faculty at beginning their 
+graduate careers. The ideal situation would be for a student to have chosen the general 
+research area and to have received an indication from a faculty member that he or she 
+would be willing to serve as advisor to the student before the end of the first semester.  
+As per the guideline and regulations of AASTU, a Master student must have an 
+approved Thesis Proposal before the beginning of third semester and a PhD student a 
+Dissertation Proposal by the end of the third semester. 
+Generally, a Master study must make a substantial work based on independent 
+research which shows a sound knowledge of the subject of the research, evidence of 
+the exercise of some independence of thought and the ability of expression in clear 
+and concise language. The justification of the study will state how the proposed study 
+is expected to fulfill these requirements. A PhD study must make a substantial and 
+original contribution to knowledge, such as the discovery of new knowledge, the 
+formulation of theories, or the innovative re-interpretation of known data and 
+established ideas. The justification of the study will state how the proposed study will 
+fulfill this requirement, i.e., a statement of the need for the proposed study in terms of 
+its anticipated contribution to the field. 
+2.2. Procedure for Preparation and Approval of Graduate Research Proposals 
+The procedure for preparation and approval of the proposals is given below.  
+1. In consultation with his/her advisor(s), the student identifies a research topic 
+and develops a proposal which addresses the following points: nature and 
+significance of the problem, expected objectives and outcome, description 
+2 
+of the procedures used to solve the problem, timetable for the work and 
+budget breakdown and etc. 
+2. Advisor(s) critically assess the Master’s Thesis/PhD Dissertation proposal 
+and check whether the student’s proposal is up to standard and prepared 
+following this guideline. 
+3. The student shall submit three hard copies and soft copy, signed by his/her 
+advisor(s), to the department.  
+4. Following the DGC meeting on the submitted proposal, DGC chairperson 
+passes a copy of the Master Thesis/PhD Dissertation proposal to two 
+evaluators who are expert in the area and arranges proposal defense 
+presentation. 
+5.  
+Assigned evaluators shall thoroughly review the proposal and evaluate 
+using AASTU/GP-F9a form for Masters and AASTU/GP-F9b form for 
+PhD proposals, after which it may a) return the proposal to the student for 
+clarification, modification, rewriting or rework, or b) approve the proposal 
+as submitted.  
+6. Student makes corrections to accepted proposal and submit 4 signed copies 
+of the corrected proposal (with signatures of evaluators and advisor(s) on 
+the approval page of the proposal) to the department after advisor(s) 
+checked that all agreed corrections and suggestions of assigned evaluators 
+are included. Students with rework proposals should follow procedures 1-6 
+again. 
+7. After checking the inclusion of all corrections and suggestions, the DGC 
+chairperson duly signs the approved copies of the proposal and sends to the 
+college AC.     
+8. The college AC will assess the proposal in terms of the guidelines used and 
+feasibility including the cost breakdown. The AC will return incomplete 
+proposals to the respective department for improvement. 
+3 
+9. Following the AC decision, the College Associate Dean for GP approves 
+the proposal by duly signing each copy. One copy of the proposal should be 
+sent to the office of Director for Graduate Program (DGP). 
+10. Sponsored students request for research fund as per Thesis/Dissertation 
+Research Grant Guideline.  
+The above procedure is summarized in the flowchart given in the Appendix 4. 
+NB: As per the guidelines and regulations of AASTU, if a student does not have an 
+approved Master’s Thesis Proposal before the beginning of third semester or a PhD 
+Dissertation Proposal by the end of third semester, then it is taken as the student is not 
+making “Normal Progress”. The DGC and AC must be made aware of the reasons for 
+the delay, expected timeline for completion, and a meeting may be requested with the 
+student and advisor to discuss the circumstances. 
+2.3. Structure and Contents of Graduate Research Proposal   
+Preliminary Pages 
+The research proposal should include the following sections as per the sequence 
+below:  
+ Title Page 
+ Approval Page 
+ Table of Contents 
+ Abbreviation and Acronyms (if any) 
+ List of Figures (if any) 
+ List of Tables (if any) 
+1. Introduction 
+ Problem statements 
+Main Body of 
+Proposal 
+ Significance of the study 
+ Objective of the study 
+2. Related Literature Review 
+3. Research Methodology 
+4. Work Schedule and Cost Breakdown 
+References 
+Appendix (if any) 
+4 
+2.3.1. Title Page 
+ The Title Page is the first page of the proposal. It is considered page “i”, but the 
+number does not appear on the page. 
+ The title page should include the following: 
+i. 
+AASTU logo 
+ii. 
+iii. 
+iv. 
+v. 
+vi. 
+vii. 
+viii. 
+Full title of proposal; 
+Full name of student; 
+Full name of advisor(s); 
+Name of the Department (stream); 
+Name of the College; 
+Name of the university; 
+Month and year of submission. 
+ If the title runs onto more than one line, use inverted pyramid style (first line 
+longer than the second) and double spaced. 
+ Refer Appendix 1 for the title page format specifications and sample title pages. 
+2.3.2. Approval Page  
+ The approval page is page ii.  
+ Refer Appendix 1 for sample approval page. 
+2.3.3. Table of Contents  
+ The Table of Contents lists in sequence all relevant subdivisions of the proposal 
+with their corresponding page numbers.  
+It includes: 
+Approval Page 
+List of Tables (if any) 
+List of Figures (if any) 
+Abbreviation and Acronyms (if any) 
+1. Introduction  
+ Problem statements 
+ Significance of the study 
+5 
+ Objective of the study 
+2. Related Literature Review  
+3. Research Methodology 
+4. Work Schedule and Cost Breakdown 
+References  
+Appendices (if any) 
+ Generate the table of contents at the very end of your proposal work, since page 
+numbers often change due to last-minute additions/deletions. 
+2.3.4. List of Tables 
+ The list shows the exact titles or captions of all tables in the text and appendices, 
+together with the page number of each table, and must be listed in sequence.  
+ If the whole proposal contains only one or two tables, then a List of Tables is not 
+necessary.  
+ A period shall be placed after the number, before the caption (e.g., Table 1. 
+Caption of table).  
+ Single space individual captions/titles that run over onto two or more lines.  
+2.3.5. List of Figures 
+ Figures include graphs, maps, charts, engineering drawings, photographs (plates), 
+sketches, printed images, and any other form of illustration that is not a table.  
+ The exact titles or captions and their corresponding page numbers must be listed 
+in sequence.  
+ Figures, including those in the appendices (if any), should be numbered 
+consecutively throughout the proposal.  
+ If the whole proposal contains only one or two figures, then a List of Figures is 
+not necessary. 
+ A period shall be placed after the number, before the caption (e.g., Fig. 1. Caption 
+of figure).  
+ Single space individual captions/titles that run over onto two or more lines.  
+6 
+2.3.6. List of Abbreviations and Acronyms  
+  If abbreviations and acronyms are used in the proposal, they should be explained 
+in Abbreviations and Acronyms page, even though the full names are given at first 
+use.  
+ This list should be the last item in the preliminary section. It serves as a ready 
+reference to readers not familiar with the abbreviations used in the proposal.  
+ Universally recognized scientific symbols (such as CO2, cm, mm, kg, DNA, etc.) 
+need not be listed. 
+ List of Illustrations, List of Equations, List of Special Symbols, Definitions, etc. 
+should be included, where applicable, under the respective title.  
+2.3.7. Introduction 
+The introduction gives an overview of the research project highlighting the 
+significance of the research work that is proposed to be carried out. It explains the 
+background of the project, focusing briefly on the major issues of its knowledge 
+domain and clarifying why these issues are worthy of attention. In addition to the 
+general background, the introduction should highlight the research gap by reviewing 
+relevant literature. It then proceeds with the concise presentation of the research 
+statement, which can take the form of a hypothesis, a research question, a project 
+statement, or a goal statement. The research statement should capture both the essence 
+of the project and its delimiting boundaries, and should be followed by a clarification 
+of the expected outcome and contribution to the existing knowledge.  
+The introduction should endeavor, from the very beginning, to catch the reader’s 
+interest and should be written in a style that can be understood easily by any reader 
+with a general science background. It should cite all relevant references pertaining to 
+the major issues described, and it should close with a brief description of each one of 
+the sections that follow. 
+2.3.8. Related Literature Review 
+The literature review should be a critical analysis of the existing knowledge on research 
+problems, objectives and methods. It includes strength of previous studies, limitations and 
+the gaps. In addition, the literature review should give a detailed account of the 
+theoretical background and related work.  The review need to highlight the main 
+7 
+issues in the research area and the reviewer need to reconcile any conflicting 
+hypothesis/results reported by different authors by providing his own interpretation 
+and outlook on the matters of contention. A critical review of literature needs to be 
+presented in an organized and synthesized manner with coherent flow of ideas. It 
+clarifies, strengthens and directs each stage of research and indicates what is new in a 
+proposed study. Furthermore, the literature review should give a comprehensive 
+coverage of the state of the art in the field of study and highlight the research gaps 
+that need further investigation. It is important to note that the review should focus on 
+more relevant and recent literature. 
+2.3.9. Research Methodology  
+Research methodology is the procedures or techniques used to identify, select, 
+process, and analyze data about the proposed research project. The research 
+methodology section should answer the following main questions: How will the data 
+be generated? How would it be analyzed? Where and under what conditions will the 
+study be undertaken? What materials and measuring instruments will be used? What 
+statistical tools will be used for uncertainty analysis and validation? What 
+mathematical and numerical tools will be used? 
+This section should give clear, specific, appropriate and credible procedures that will 
+be followed to attain the proposed objectives of the study. The research design 
+planned for use should be clearly stated. The research methodology section possibly 
+contains the following information: definition of terms and variables, description of 
+the study area or experimental site, schematics of experimental setup, study design or 
+experimental design, description of population (for relevant discipline), sampling 
+methods, data collection and analysis techniques, method of uncertainty analysis, 
+statistical analysis, etc.   
+2.3.10. Work Schedule and Cost Breakdown 
+The work plan refers to budgeting of time for the implementation of the research 
+project. This is to assign dates for the completion of various activities of the proposed 
+research. The act of submitting the work plan in the research proposal systematizes 
+the study and minimizes the natural tendency to procrastinate. A detailed work plan 
+showing jobs to be done in the main phases of the study and the time sequence (the 
+8 
+operating schedule), more of it conveniently presented in the form of Gantt chart, is 
+essential, if the project is to be carried out smoothly and efficiently. A detailed budget 
+breakdown for each and every expense of the project should also be presented in the 
+form of table in accordance to the timeline of project activities. 
+2.3.11. References 
+ All references cited in the body text of the proposal should be listed in the 
+reference section and vice versa.  
+ The list of references should appear as a consolidated list with references listed 
+either alphabetically or sequentially as they appear in the text of the proposal, 
+depending on the reference style used. Refer section 4.5 of this document for the 
+details reference styles and formats. 
+ Spacing and font size should be consistent inside a single reference, and there 
+should be single spacing between two different references. 
+9 
+3. Preparation and Approval of Thesis and Dissertation 
+The terms Thesis and Dissertation refer to written reports of research studies 
+undertaken in partial fulfillment for the award of Master and Doctor of Philosophy 
+(PhD) degrees, respectively. These documents, thesis and dissertation, should 
+demonstrate a mastery of a body of knowledge on the subject. They represent original 
+scholarly research and writing, and their content and style make statement about the 
+student, the advisors who have guided the student, and the AASTU. Hereinafter, both 
+the thesis and the dissertation shall be referred to by the term “thesis” unless the 
+information is specific to Master’s or doctoral students. Where format requirements 
+differ, the specific requirements for each document are indicated. 
+3.1. Procedure for Submission and Approval of Thesis  
+The procedure for submission and approval of the thesis is given below.  
+1. Student commences writing the thesis by utilizing this document for format 
+and style requirements 
+2. Advisor(s) check whether the document reaches the final stage.  
+3. The student shall submit three copies, signed by his/her advisor(s), to the 
+department by completing AASTU/GP-F5a form for Master’s thesis and 
+AASTU/GP-F6a form for PhD dissertation. A Master’s student has to 
+provide evidence and copy of article submitted to peer review journal and a 
+PhD student has to submit the copies of published articles along with the 
+dissertation.  
+4. DGC shall evaluate whether the submitted article is publishable (for 
+Master’s thesis) and the thesis/dissertation is defendable? If the DGC 
+decides the thesis/dissertation is defendable, it nominates the Board of 
+Examiners (BoE) and recommend to College AC. 
+5. AC approves the Board of Examiners. 
+6. DGC schedules the Thesis/Dissertation defense date and send a copy of the 
+document to each evaluator before one month for Master thesis and four 
+month for PhD dissertation. 
+10 
+7. Assigned examiner will thoroughly review the thesis/dissertation and 
+evaluate using AASTU/GP-F5b form for Master’s thesis and AASTU/GP
+F6b form for PhD dissertation and the chairperson shall use AASTU/GP
+F5c form for Master’s thesis and AASTU/GP-F6c form for PhD 
+dissertation.   
+8. If the thesis/dissertation is accepted and requires correction, student makes 
+corrections to accepted thesis/dissertation and submit 4 signed hardbound 
+copies of the corrected final thesis/dissertation (with signatures of 
+examiners and advisor(s) on the certificate page and declaration page of the 
+thesis/dissertation) to department after the BoE checked that all agreed 
+corrections and suggestions of assigned examiners are included. Students 
+with rejected thesis/dissertation should follow DGC’s and BoE’s decisions.  
+9. After checking the inclusion of all corrections and suggestions, DGC 
+chairperson duly signs the approved copies of the thesis/dissertation and 
+sends to the college AC.     
+10. The college AC shall approve the thesis/dissertation after checking the 
+guidelines used and procedure followed. The AC will decline incomplete 
+thesis/dissertation to the respective department for improvement. 
+11. Following the AC decision, the college shall send one copy of the 
+hardbound copy to the office of DGP. 
+The above procedure is summarized in the flowchart given in the Appendix 5. 
+11 
+3.2. Contents of Thesis 
+The thesis should include the following sections and sequence:  
+Cover Page 
+Title Page 
+Approval Page 
+Declaration 
+Dedication (optional) 
+Abstract 
+Preliminary Pages 
+Acknowledgements 
+Table of Contents 
+Abbreviations and Acronyms (if any) 
+Lists of Tables (if any) 
+List of Figures (if any) 
+Chapter 1 Introduction 
+Chapter 2 Literature Review 
+Chapter 3 Methodology 
+Text of Thesis 
+Chapter 4 Results and Discussion (Students may write 
+their results and discussion in separate chapters.) 
+Chapter 5 Conclusions and Recommendations 
+References 
+Appendices 
+List of Publication 
+12 
+3.2.1. Cover Page 
+ The cover page is the first page of a thesis and it is the only page of a thesis for 
+which a page number is not assigned.  
+ It is printed on hard paper and required only during final submission after 
+defense.  
+ The following are requirements for the cover page (refer to Appendix 2 and 3 for 
+more details). 
+o Thesis Spine  
+The spine must be entirely lettered in gold, using a 18-point font and must 
+contain the following: 
+i. 
+Name of student; 
+ii. 
+iii. 
+Title of the thesis 
+AASTU YYYY 
+o Cover Page  
+ The front cover must be BLUE WITH WHITE FRAME for 
+Doctor of Philosophy Dissertation and BLUE WITHOUT 
+FRAME for Master’s Thesis. 
+ The front cover must be entirely lettered in gold using 18-point 
+white block font and contain the following: 
+i. 
+AASTU Logo; 
+ii. 
+iii. 
+iv. 
+v. 
+vi. 
+vii. 
+viii. 
+ix. 
+3.2.2. Title Page  
+Name of the University;  
+Title of thesis; 
+A Master’s Thesis/ A Doctoral Dissertation; 
+by 
+Name of student; 
+Name of the department; 
+Name of the college and 
+Year of submission 
+ The Title Page is the first page of the thesis proposal. It is considered page “i”, but 
+the number does not appear on the page. 
+13 
+ The title page should include the following: 
+o AASTU logo 
+o Name of the university; 
+o Full title of thesis; 
+o Full name of student; 
+o Degree for which the thesis is submitted; 
+o Name of the department; 
+o Name of the college; 
+o MONTH and YEAR of submission. 
+ If the title runs onto more than one line, use inverted pyramid style (first line 
+longer than the second) and double spaced. 
+ Refer Appendix 2 for the title page format specifications and sample title pages of 
+thesis. 
+3.2.3. Approval Page 
+ Refer Appendix 2 for sample approval pages. 
+3.2.4. Declaration Page  
+ Refer Appendix 2 for sample declaration pages. 
+3.2.5. Dedication (optional) 
+ The Dedication page is optional and can be deleted if the student decides not to 
+use it. 
+3.2.6. Abstract  
+ The abstract is a digest of the entire thesis and it must bring out the salient points 
+about your work, highlighting your achievements. It should not include any 
+references. Text should be double spaced.  
+ Abbreviations or acronyms must be preceded by the full terms at the first use.  
+ It includes a brief statement of the problem and objectives of the study, a concise 
+description of the research method and design. Summary of the major findings 
+including their significance and conclusions. Abstract should end with at most 
+“five key words” of the study. 
+14 
+3.2.7. Acknowledgments  
+ This page is for the author to express professional and/or personal indebtedness, 
+people or institutions that have contributed to the content of his/her thesis, 
+permission(s) to use previously copyrighted materials, receipt of grant funds, 
+recognition of “readers”, etc. is acknowledged on this page.  
+ Students must be consistent with the use of the third ("the author") or first person 
+throughout.  
+ This page is optional, but if included, it is paginated (lower case Roman numerals) 
+and listed in the Table of Contents. If this page is included, head the section as 
+“Acknowledgments”. 
+3.2.8. Table of Contents  
+ The Table of Contents lists in sequence all relevant subdivisions of the thesis with 
+their corresponding page numbers.  
+It includes: 
+Approval 
+Declaration 
+Abstract 
+Acknowledgements 
+List of Abbreviation and Acronyms 
+List of Tables 
+List of Figures 
+List of Illustrations, List of Equations, List of Special Symbols, 
+Definitions, etc. (where applicable) 
+Text of the Thesis 
+References  
+Appendices 
+List of Publications 
+15 
+3.2.9. List of Abbreviations and Acronyms 
+See section 2.3.6 of this document for more details. 
+3.2.10. List of Tables 
+See section 2.3.4 of this document for more details. 
+3.2.11. List of Figures 
+See section 2.3.5 of this document for more details. 
+3.2.12. Text of Thesis 
+ The body of a thesis proposal normally consists of sections which are organized as 
+chapters.  
+ A chapter may be divided into major sections and subsections.  
+ Main or primary headings within chapters are to be centered while sub-headings 
+are left justified.  
+ Quaternary headings are not listed in the Table of Contents. 
+ The main sections and subsections of a chapter may be identified by numbers 
+where the former are regarded as being the first level. For example, Sections 2.1 
+and 2.2 would denote two consecutive main sections in Chapter 2, and Sections 
+3.1 and 3.2 would denote two consecutive main sections in Chapter 3.  
+ A subsection would be found in a major section of a chapter, and is regarded as 
+the third level. It should be numbered 2.1.1., 2.1.2., etc. The numbering style 
+should be consistent throughout the thesis and should be limited to 4 levels.  
+ Students are advised to discuss the usage of tables and figures with their advisor 
+before their inclusion in the thesis, as different disciplines have different 
+preferences.  
+ Body of thesis is paginated with Arabic numbers, starting with number 1 on the 
+first page of Chapter 1.  
+ Every page must be numbered consecutively.  
+ The Ph.D. student has two options in writing of his or her dissertation for the 
+doctor of philosophy degree. One option is the traditional and more common 
+format known as the “monograph” format. The other dissertation format is 
+referred to the “manuscript” format. 
+16 
+ The monograph format will share a similar format with the traditional thesis. It 
+will have sections including an introduction chapter, a literature review chapter, 
+materials and methods chapter, results and discussion chapter (which may be 
+written in two chapters), a summary, conclusions and recommendations chapter, a 
+references chapter and an appendix. 
+ The manuscript format will first include a summary of the dissertation of perhaps 
+twenty to thirty pages in length. In preparing the dissertation summary, the student 
+will be cautious to minimize redundancy in making references to the respective 
+manuscripts which follow in the dissertation while presenting the methods and 
+presenting the results and discussion. This dissertation summary will then be 
+followed by a collection of both published and unpublished articles on the subject 
+matter that he or she and members of the advisory committee have written 
+together. These articles will be either reprints of publications with prior 
+permission from the journal editor or drafts in manuscript format. So, the 
+manuscript format will have a summary of the dissertation which is followed by a 
+collection of published and unpublished articles originating from the dissertation 
+research. 
+ These two options are now offered to the doctoral students to provide some 
+variety in the preparation of their dissertations. The two options also provide an 
+opportunity for students who have published extensively to highlight their writing 
+and publishing activities while working on their dissertations. 
+ These two formats should be discussed with the student’s academic advisors. 
+ Decisions about the choice of format can be made during the preparation of the 
+dissertation. 
+3.2.13. References  
+See sections 2.3.11 and 4.5 of this document for more details. 
+3.2.14. Appendices 
+ Information or data that is too detailed for the main body of the thesis may be 
+included as appendices.  
+ Appendices include original data, summary, sideline or preliminary tests, 
+tabulations, tables that contain data of lesser importance, very lengthy quotations, 
+17 
+supporting decisions, forms and documents, computer printouts, detailed 
+engineering drawings and other pertinent documents.  
+ Appendix materials should be grouped by type, e.g., Appendix A: Questionnaire, 
+Appendix B: Original data, Appendix C: Tables of results. 
+ Appendices must be paginated consecutively with the main text.  
+3.2.15. List of Publications 
+ All publications (in journals and proceedings) that result from the study 
+undertaken by the student while under supervision and during their candidature, 
+and for which the student is the first or principal author, should be listed clearly 
+and accurately.  
+18 
+4. General Style and Formatting 
+4.1. Paper Size and Margins  
+ A4 is the recommended thesis size.  
+ The left margin should be at least 1.5 Inch. 
+ The right, top and bottom margins at least 1 Inch.  
+ Margin specifications are meant to facilitate binding and trimming. 
+4.2. Font Type and Size  
+ The text of the proposal, including headings and page numbers, must be produced 
+with the same font or typeface.  
+ The font size should be 12-point and should not be scripted or italicized except 
+for scientific names and terms in a different language.  
+ Bold print should be used for headings. 
+ Text in tables should not be less than 8-point.  
+ A font appropriate for a proposal is Times New Roman font. 
+4.3. Spacing  
+ The graduate research proposals, theses and dissertations should be 1.5.  
+ The following, however, should be single-spaced: 
+o Quotations of three lines or more, indented and set in a block; 
+o References or bibliography (except between entries); 
+o Multi-line captions of tables and figures; 
+o Appendices,  
+o Headings or subheadings 
+4.4. Pagination  
+ All pages should be numbered consecutively throughout the graduate research 
+proposals, theses and dissertations, including pages containing appendices and 
+references.  
+ Page numbers should be centered either centrally or right flushed at bottom 
+margins.  
+ Page numbers should appear by themselves and should not be placed in brackets, 
+be hyphenated or be accompanied by decorative images.  
+19 
+ Text, tables and figures should be printed on one (1) side of each sheet only. 
+ Preliminary pages, except the title page, preceding 1. Introduction must be 
+numbered in lowercase Roman numerals (ii, iii, iv, etc.).  
+ The title page should not be numbered although it is counted as page i.  
+ Page 1 is the first page of the 1. Introduction. 
+4.5. Reference Styles and Formats 
+ Students, in consultation with their advisor(s), are responsible for choosing a style 
+of citation appropriate to the field and should follow the reference style and 
+format consistently throughout the document.  
+Bibliography 
+The following documents were consulted and used in preparation of this guidebook. 
+1. Senate Legislation, Addis Ababa Science and Technology University, July 
+2017. 
+2. Thesis writing, examination and grading guidelines, School of Graduate 
+Studies, Addis Ababa University, April 2012. 
+3. Research Proposal, Thesis and Dissertation Writing Manual Second 
+Edition, Haramay University, October 2011. 
+4. Guidelines for Thesis Preparation, Indian Institute of Technology Kanpur. 
+5. Guide to thesis and Dissertation, School of Graduate Studies, The 
+University of Auckland. 
+20 
+Appendix 1: Format Specifications and Sample Templates for 
+Preliminary Pages of Proposals 
+Format Specification for Title Page for Proposals 
+Sample Title Page for Master’s Thesis Proposal  
+Sample Title Page for Doctoral Dissertation Proposal 
+Approval Page  
+21 
+22 
+Title Page Format Specifications for Proposals 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+(Upper case, centered, bold, italic, 14-point font) 
+TITLE OF THE THESIS/DISSERTATION 
+RESEARCH PROPOSAL  
+(Upper case, centered, bold, 18-point font, double spaced)  
+<MSc/MBA Thesis or PhD Dissertation> Research Proposal 
+By 
+NAME OF STUDENT 
+(Upper case, centered, bold, 14-point font)  
+Advisor(s): NAME OF ADVISOR(S) (Upper case, centered, bold, 14-point 
+font) 
+DEPARTMENT OF <INSERT NAME OF THE DEPARTMENT>  
+(<INSERT NAME OF STREAM>) 
+COLLEGE OF <INSERT NAME OF THE COLLEGE> 
+(Upper case, centered, bold, 14-point font, 1.5p spaced) 
+MONTH YEAR 
+(Upper case, centered, bold, 14-point font) 
+23 
+Sample Title Page for Master’s Thesis Proposal 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+ULTRA LOW ENERGY COMMUNICATION 
+PROTOCOL FOR IMPLANTABLE WIRELESS 
+BODY SENSOR NETWORK  
+MSc Thesis Research Proposal  
+By 
+MENGISTU URGE KEBEDE 
+Advisor: MULATU GEBISA (Ph.D.) 
+DEPARTMENT OF ELECTRICAL AND COMPUTER 
+ENGINEERING (COMMUNICATION STREAM) 
+COLLEGE OF ELECTRICAL AND MECHANICAL 
+ENGINEERING 
+APRIL 2019 
+24 
+Sample Title Page for PhD Dissertation Proposal 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+THREE-DIMENSIONAL ANALYSIS OF 
+TUNNELLING EFFECTS ON STRUCTURES TO 
+DEVELOP DESIGN METHODS  
+PhD Dissertation Research Proposal  
+By 
+MENGISTU URGE KEBEDE 
+Advisor: MULATU GEBISA (Ph.D.) 
+DEPARTMENT OF CIVIL ENGINEERING  
+(STRUCTURAL ENGINEERING STREAM) 
+COLLEGE OF ARCHITECTURE AND CIVIL ENGINEERING 
+APRIL 2019 
+25 
+ 
+ 
+ 
+Approval Page 
+ 
+ Approval Page 
+ 
+Title:   ___________________________________________________ 
+   
+     
+Student Name:                                                                    Signature, Date:  
+  
+Approved by the examining committee members:  
+ 
+  Name  Academic Rank  Signature  Date 
+Advisor:  ________________  ________________  ___________  ___________ 
+Co-Advisor:  ________________  ________________  ___________  ___________ 
+Examiner:  ________________  ________________  ___________  ___________ 
+Examiner:  ________________  ________________  ___________  ___________ 
+Chairperson:         
+ 
+ 
+  Name  Signature  Date 
+DGC Chairperson:  ________________  ________________  ________________ 
+Dean/Associate 
+Dean for Graduate 
+Programs: 
+ ________________  ________________  ________________ 
+ 
+ 
+ 
+ 
+ 
+26 
+Appendix 2: Format Specifications and Sample Pages for 
+Preliminary Pages of Master’s Thesis  
+Spine and Cover Page Format Specifications for Master’s Thesis 
+Title Page Format Specifications for Master’s Thesis 
+Sample Title Page for Master’s Thesis 
+Sample Declaration Page for Master’s Thesis 
+Sample Approval Page for Master’s Thesis 
+26 
+27 
+Spine and Cover Page Format Specifications for Master’s Thesis 
+Name of Student 
+Title of the thesis 
+AASTU YYYY 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+TITLE OF THE THESIS  
+(Lettered in gold, upper case, centered, bold, 18-point font, double spaced)  
+A MASTER’S THESIS 
+BY 
+NAME OF STUDENT 
+(Lettered in gold, upper case, centered, bold, 16-point font)  
+DEPARTMENT OF <INSERT NAME OF 
+DEPARTMENT> 
+COLLEGE OF <INSERT NAME OF COLLEGE> 
+(Lettered in gold, upper case, centered, bold, 16-point font)  
+MONTH YEAR 
+(Month and Year of submission) 
+(Lettered in gold, upper case, centered, bold, 18-point font) 
+28 
+Title Page Format Specifications for Master’s Thesis 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+(Upper case, centered, bold, italic, 14-point font, double spaced) 
+TITLE OF THE THESIS  
+(Upper case, centered, bold, 18-point font, double spaced)  
+By 
+NAME OF STUDENT 
+(Upper case, centered, bold, 14-point font)  
+A Thesis Submitted as a Partial Fulfillment to the Requirements for the Award of the 
+Degree of Master of <Science/Business Administration> in <insert the name of the 
+program> (<insert stream (if any)>) 
+to 
+DEPARTMENT OF <INSERT THE NAME OF THE 
+DEPARTMENT>  
+COLLEGE OF <INSERT THE NAME OF THE COLLEGE>  
+(Upper case, centered, bold, 14-point font) 
+MONTH YEAR 
+(month and year of submission) 
+29 
+Sample Title Page for Master’s Thesis 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+ULTRA LOW ENERGY COMMUNICATION 
+PROTOCOL FOR IMPLANTABLE WIRELESS 
+BODY SENSOR NETWORK  
+By 
+MENGISTU URGE KEBEDE 
+A Thesis Submitted as a Partial Fulfillment to the Requirements for the Award of the 
+Degree of Master of Science in Electrical and Computer Engineering 
+(Communication Engineering)  
+to 
+DEPARTMENT OF ELECTRICAL AND COMPUTER ENGINEERING 
+COLLEGE OF ELECTRICAL AND MECHANICAL ENGINEERING 
+APRIL 2019 
+30 
+Sample Declaration Page for Master’s Thesis  
+Declaration 
+I hereby declare that this thesis entitled “Ultra Low Energy Communication 
+Protocol for Implantable Wireless Body Sensor Network” was prepared by me, 
+with the guidance of my advisor. The work contained herein is my own except where 
+explicitly stated otherwise in the text, and that this work has not been submitted, in 
+whole or in part, for any other degree or professional qualification. Parts of this work 
+have been published in [state previous publication].  
+Author:                                                                  
+Witnessed by: 
+Name of student advisor:                                                                  
+Name of student co-advisor:                                                                  
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+31 
+Sample Approval Page for Master’s Thesis  
+Approval Page 
+This is to certify that the thesis prepared by Mr. Mengistu Urge Kebede entitled 
+“Ultra Low Energy Communication Protocol for Implantable Wireless Body 
+Sensor Network” and submitted as a partial fulfillment for the award of the Degree 
+of Master of Science in Electrical and Computer Engineering (Communication 
+Engineering) complies with the regulations of the university and meets the accepted 
+standards with respect to originality, content and quality. 
+Signed by Examining Board:    
+Advisor:                                                                  
+External Examiner:                                                                  
+Internal Examiner:                                                                  
+Chairperson:                                                                        
+DGC Chairperson:                                                                        
+College Dean/Associate Dean for GP:                                                                        
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+32 
+Appendix 3: Format Specifications and Sample Pages for 
+Preliminary Pages Dissertation  
+Spine and Cover Page Format Specifications for PhD Dissertation 
+Title Page Format Specifications for PhD Dissertation 
+Sample Title Page for PhD Dissertation 
+Sample Declaration Page for PhD Dissertation 
+Sample Approval Page for PhD Dissertation 
+32 
+33 
+Spine and Cover Page Format Specifications for PhD Dissertation 
+Name of Student 
+Title of the dissertation 
+AASTU YYYY 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+(Lettered in white, upper case, centered, bold, italic, 14-point font, double spaced)  
+TITLE OF THE DISSERTATION  
+(Lettered in white, upper case, centered, bold, 18-point font, double spaced)  
+A DOCTORAL DISSERTATION 
+BY 
+NAME OF STUDENT 
+(Lettered in white, upper case, centered, bold, 16-point font)  
+DEPARTMENT OF <INSERT NAME OF 
+DEPARTMENT> 
+COLLEGE OF <INSERT NAME OF COLLEGE> 
+(Lettered in white, upper case, centered, bold, 16-point font)  
+MONTH YEAR 
+(Month and Year of submission) 
+(Lettered in white, upper case, centered, bold, 16-point font) 
+34 
+Title Page Format Specifications for PhD Dissertation 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+(Upper case, centered, bold, italic, 14-point font)  
+TITLE OF THE DISSERTATION  
+(Upper case, centered, bold, 18-point font, double spaced)  
+By 
+NAME OF STUDENT 
+(Upper case, centered, bold, 14-point font)  
+A Dissertation Submitted as a Partial Fulfillment to the Requirements for the Award 
+of the Degree of Doctor of Philosophy in <insert the name of the program> (<insert 
+stream (if any)>) 
+to 
+DEPARTMENT OF <INSERT THE NAME OF THE 
+DEPARTMENT>  
+COLLEGE OF <INSERT THE NAME OF THE COLLEGE>  
+(Upper case, centered, bold, 14-point font) 
+MONTH YEAR 
+(month and year of submission) 
+35 
+Sample Title Page for PhD Dissertation 
+ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY 
+ULTRA LOW ENERGY COMMUNICATION 
+PROTOCOL FOR IMPLANTABLE WIRELESS 
+BODY SENSOR NETWORK  
+By 
+MENGISTU URGE KEBEDE 
+A Dissertation Submitted as a Partial Fulfillment to the Requirements for the Award 
+of the Degree of Doctor of Philosophy in Electrical and Computer Engineering 
+(Communication Engineering)  
+to 
+DEPARTMENT OF ELECTRICAL AND COMPUTER ENGINEERING 
+COLLEGE OF ELECTRICAL AND MECHANICAL ENGINEERING 
+APRIL 2019 
+36 
+Sample Declaration Page for PhD Dissertation 
+Declaration 
+I hereby declare that this dissertation entitled “Ultra Low Energy Communication 
+Protocol for Implantable Wireless Body Sensor Network” was prepared by me, 
+with the guidance of my advisor. The work contained herein is my own except where 
+explicitly stated otherwise in the text, and that this work has not been submitted, in 
+whole or in part, for any other degree or professional qualification. Parts of this work 
+have been published in [state previous publication].  
+Author:                                                                  
+Witnessed by: 
+Name of student advisor:                                                                  
+Name of student co-advisor:                                                                  
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+37 
+Sample Approval Page for PhD Dissertation  
+Approval Page 
+This is to certify that the dissertation prepared by Mr. Mengistu Urge Kebede 
+entitled “Ultra Low Energy Communication Protocol for Implantable Wireless 
+Body Sensor Network” and submitted as a partial fulfillment to the requirements for 
+the award of the Degree of Doctor of Philosophy in Electrical and Computer 
+Engineering (Communication Engineering) complies with the regulations of the 
+University and meets the accepted standards with respect to originality, content and 
+quality. 
+Signed by Examining Board:    
+External Examiner:                                                                  
+Internal Examiner:                                                                  
+Chairperson:                                                                        
+DGC Chairperson:                                                                        
+College Dean/Associate Dean for GP:                                                                        
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+Signature, Date: 
+38 
+Appendix 4: Flowchart of Master’s and PhD Proposals Submission and Approval Processes 
+Identify a research topic and 
+prepare the proposal 
+(student in consultation with 
+advisor(s)) 
+Advisor(s) critically assess the 
+Master’s Thesis/PhD Dissertation 
+Is proposal up to standard and 
+prepared following a proper 
+guideline? 
+Yes 
+Submit 3 copies of the proposal (signed by 
+the student and advisor(s)) to the department 
+Following the DGC meeting, DGC chairperson 
+passes a copy of the Master’s Thesis/PhD 
+Dissertation proposal to two evaluators who 
+are expert in the area. Assigned evaluators will 
+thoroughly review the proposal and give 
+comments on the copy of the proposal 
+DGC check if all 
+corrections and 
+suggestions by evaluators 
+are included 
+No 
+No 
+Student makes corrections to proposal and 
+submits 3 signed copies of the corrected 
+proposal (with signatures of evaluators 
+and advisor(s) on the Approval Page of the 
+proposal) to the DGC.  
+No 
+Yes 
+Proposal evaluation and rating 
+using AASTU/GP-F5e for 
+Master’s and AASTU/GP-F5f 
+for PhD) 
+DGC set a schedule for the 
+presentation, 15 – 20 min presentation 
+and 30 min Q&A for Master’s thesis 
+proposal and 20 – 30 min presentation 
+and 45 min Q&A for PhD dissertation 
+proposal 
+Yes 
+DGC chairperson duly 
+signs the approved copies 
+of the proposal and sends 
+to the college AC. 
+
+The college AC will assess the 
+proposal in terms of the guidelines 
+used and feasibility including the 
+cost breakdown 
+
+Incomplete proposals will be 
+returned to the respective 
+department for improvement 
+College Associate Dean for GP 
+approves the proposal by duly 
+signing each copy. One copy of 
+the proposal will be send to the 
+office of DGP 
+Sponsored students request 
+research fund as per 
+Thesis/Dissertation 
+Research Grant Guideline 
+39 
+ 
+ 
+ 
+Student submit to DGC  
+ Three (3) softbound copies of the 
+Thesis/Dissertation 
+ Completed AASTU/GP-F5a form 
+for MSc. thesis or AASTU/GP
+F6a form for PhD Dissertation 
+ Evidence and copy of article 
+submitted to peer review journal 
+for Master’s student and copy of 
+two published article for PhD 
+students 
+NO 
+YES 
+YES 
+ 
+ 
+ 
+ 
+ 
+ 
+            Writing Process 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Appendix 5: Flowchart of Thesis/Dissertation Submission and Approval Processes 
+Utilize AASTU’s Guideline for 
+Preparing and Submitting 
+Graduate Research Proposals, 
+Thesis and Dissertation 
+document for format and style 
+requirements 
+Use referencing tools to 
+manage your citations 
+ 
+Use Turnitin.com or 
+equivalent as plagiarism 
+check 
+Prepare and submit a publishable 
+article to a peer reviewed and 
+reputable journal for Master’s 
+student and two published 
+articles for PhD student  
+Student commence writing 
+Thesis/Dissertation) 
+Advisor(s) check whether 
+the document reaches the 
+final stage and evaluate the 
+publishability of the 
+submitted article for 
+Master’s student 
+ 
+Submit a copy of the 
+Thesis/Dissertation and a copy 
+of submitted article for 
+Master’s student and two 
+published articles for PhD 
+student to Advisor(s) 
+ 
+DGC shall evaluate 
+whether the submitted 
+article is publishable for 
+Master’s student and 
+thesis/dissertation is 
+defendable? 
+ 
+DGC nominate Board of 
+Examiners and 
+recommend to college AC 
+AC approve Board of 
+Examiners (BOE) 
+DGC schedule the 
+Thesis/Dissertation 
+defense date and send a 
+copy of the document to 
+each evaluator 
+YES 
+ Successfully defended 
+thesis/dissertation? 
+ 
+BoE rate the 
+thesis/dissertation using 
+AASTU/GP-F5b for 
+Master’s and 
+AASTU/GP-F6b for PhD 
+Accepted as 
+Submitted/Minor or 
+Major Revision 
+Conduct revision and get 
+approval of BoE Submission of four 
+hardbound copies along 
+with AASTU/GP-F5d 
+form for Master’s and 
+AASTU/GP-F6d form for 
+PhD   
+ 
+Rejected and defer 
+from candidacy 
+ 
+BoE and 
+DGC 
+decision 
+Revise 
+Thesis/Dissertation 
+NO 
+NO 

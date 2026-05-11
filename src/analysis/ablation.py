@@ -84,19 +84,38 @@ GROUPS: dict[str, list[str]] = {
     "project_context": [
         # Populated dynamically below - every column starting with "project_"
     ],
+    "cocg": [
+        # Populated dynamically below - every column starting with "cocg_"
+    ],
+    "prior_defect": [
+        # Populated dynamically below - every column matching the pre-snapshot
+        # bug-fix / SZZ / Jira prefixes (see priordefect_features.py).
+    ],
 }
 
 
 def _resolve_groups(available_cols: Iterable[str]) -> dict[str, list[str]]:
-    """Expand the ``project_context`` placeholder and drop missing cols."""
+    """Expand the dynamic placeholders and drop missing cols."""
     avail = set(available_cols)
     resolved = {
         name: sorted(c for c in cols if c in avail)
         for name, cols in GROUPS.items()
-        if name != "project_context"
+        if name not in {"project_context", "cocg", "prior_defect"}
     }
     resolved["project_context"] = sorted(
         c for c in avail if c.startswith("project_") or c == "has_project_context"
+    )
+    resolved["cocg"] = sorted(c for c in avail if c.startswith("cocg_"))
+    resolved["prior_defect"] = sorted(
+        c
+        for c in avail
+        if (
+            c.startswith("bugfix_commits_pre")
+            or c.startswith("szz_inducing_pre")
+            or c.startswith("linked_jira_")
+            or c == "time_since_last_bugfix_days"
+            or c == "bug_density_pre"
+        )
     )
     assigned = {c for cols in resolved.values() for c in cols}
     other = sorted(c for c in avail if c not in assigned)

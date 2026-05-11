@@ -53,11 +53,27 @@ def _load_features() -> pd.DataFrame:
     static = pd.read_parquet(PROCESSED_DATA_DIR / "features_static.parquet")
     hist = pd.read_parquet(PROCESSED_DATA_DIR / "features_historical.parquet")
 
-    # Align snapshot_date between the two sources (they come from the
-    # same Stage-2 table so should be identical; drop duplicate column)
+    # Optional new feature families. They are produced by Stage 5 in the
+    # current pipeline; older runs may not have them, in which case we
+    # silently skip rather than fail.
+    extras: list[pd.DataFrame] = []
+    for name in ("features_graph.parquet", "features_priordefect.parquet"):
+        path = PROCESSED_DATA_DIR / name
+        if path.exists():
+            extras.append(pd.read_parquet(path))
+
+    # Align snapshot_date between sources (they all come from the same
+    # Stage-2 table so should be identical; keep only static's copy).
+    for extra in extras:
+        if "snapshot_date" in extra.columns:
+            extra.drop(columns=["snapshot_date"], inplace=True)
     if "snapshot_date" in static.columns and "snapshot_date" in hist.columns:
         hist = hist.drop(columns=["snapshot_date"])
-    return static.merge(hist, on=KEY_COLS, how="outer")
+
+    out = static.merge(hist, on=KEY_COLS, how="outer")
+    for extra in extras:
+        out = out.merge(extra, on=KEY_COLS, how="left")
+    return out
 
 
 def _prepare_labels(kind: str) -> pd.DataFrame:

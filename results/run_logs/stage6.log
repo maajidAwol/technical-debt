@@ -1,0 +1,14 @@
+[Stage 6] Loading features (static + historical) ...
+   features table: rows=23,911  cols=84
+[Stage 6] consequence  rows=23,911  feats= 82  positives= 3533 (14.78%)  leaky_retained=[]  (0.3s)
+[Stage 6] severity     rows=23,911  feats= 76  positives= 2305 (9.64%)  leaky_retained=[]  (0.2s)
+[Stage 6] szz          rows=23,911  feats= 80  positives=  297 (1.24%)  leaky_retained=[]  (0.3s)
+
+[Stage 6] Per-variant dataset summary (results/tables/dataset_summary.csv):
+    variant  rows  columns_total  n_features  positive_rate_pct  positives retained_leaky_cols  cols_with_any_na
+consequence 23911             86          82              14.78       3533                                     0
+   severity 23911             79          76               9.64       2305                                     0
+        szz 23911             83          80               1.24        297                                     0
+
+[Stage 6] Elapsed: 1.0s
+[Stage 6] Complete.

@@ -16,6 +16,7 @@ Proc. PROMISE 2019.
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -25,6 +26,23 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from config import TD_DATASET_PATH  # noqa: E402
+
+
+def _td_projects_env_allowlist() -> Optional[list[str]]:
+    """Optional comma-separated subset from ``TD_PROJECTS`` (Colab demo / smoke runs).
+
+    Entries without a colon are prefixed with ``org.apache:`` to match TD v2 IDs.
+    """
+    raw = os.environ.get("TD_PROJECTS", "").strip()
+    if not raw:
+        return None
+    out: list[str] = []
+    for part in raw.split(","):
+        p = part.strip()
+        if not p:
+            continue
+        out.append(p if ":" in p else f"org.apache:{p}")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +98,12 @@ def list_projects(conn: sqlite3.Connection) -> list[str]:
             "SELECT DISTINCT PROJECT_ID FROM SONAR_ISSUES ORDER BY PROJECT_ID",
             conn,
         )
-    return rows["PROJECT_ID"].dropna().astype(str).tolist()
+    projects = rows["PROJECT_ID"].dropna().astype(str).tolist()
+    allow = _td_projects_env_allowlist()
+    if allow is not None:
+        allow_set = frozenset(allow)
+        projects = [p for p in projects if p in allow_set]
+    return projects
 
 
 def load_git_commits(

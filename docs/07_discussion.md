@@ -15,8 +15,8 @@ are prioritised. See Table 6.5 and Figure
 
 **Within-project** (stratified 10-fold CV, best model):
 
-- Consequence: F1 = 0.581,
-  CE@20 = 0.702
+- Consequence: F1 = 0.606,
+  CE@20 = 0.724
   (lightgbm)
 - Severity is near-ceiling (F1 > 0.70) and SZZ is hardest (F1
   around 0.27). The order is consistent with the intrinsic
@@ -24,8 +24,8 @@ are prioritised. See Table 6.5 and Figure
 
 **Cross-project** (LOPO on 22 projects):
 
-- Consequence: F1 = 0.418,
-  CE@20 = 0.484
+- Consequence: F1 = 0.401,
+  CE@20 = 0.485
   (lightgbm). A top-20-percent inspection
   budget in an unseen project captures roughly 50 percent of
   files that will cause real maintenance burden in the next 6
@@ -66,4 +66,41 @@ From the ablation (Table 6.7):
 - **Conclusion**: stratified K-fold allows same-project
   contamination, inflating within-project numbers; the LOPO
   numbers in Section 6.5 should be taken as the realistic
-  deployment estimate.
+  deployment estimate. The temporal T1->T2 split in Section
+  6.13 (when run) provides an additional sanity check that
+  the within-project numbers are not an artefact of random
+  shuffling.
+
+## 7.6 Refined Extended enhancements (2026-04-27)
+
+The pipeline was extended with seven enhancements explicitly
+called out in the proposal but missing from the original
+implementation:
+
+1. **Co-change graph features** (Jiang et al. 2024/2025;
+   proposal Section 2.2) - degree, weighted strength,
+   betweenness, closeness, clustering, PageRank, and recency
+   neighbour counts at 30/90 days.
+2. **Pre-snapshot defect signals** (Hassan 2009; Kamei 2013;
+   proposal Table 1 "optional") - bug-fix commit counts,
+   SZZ-inducing history (autocorrelation-guarded for the SZZ
+   variant), Jira-linked fix history.
+3. **SVM activation** in within-project CV - completes the
+   DT/RF/SVM/GBM comparison the proposal commits to. SVM is
+   explicitly excluded from LOPO due to its O(N^2) kernel
+   cost on Apache-scale data; the rationale is documented in
+   the research log.
+4. **Hyperparameter tuning** - 30-trial Optuna search optimising
+   PR-AUC. Tuned configurations are persisted for auditability.
+5. **Probability calibration** - Platt and isotonic, with Brier
+   / NLL / ECE diagnostics and reliability diagrams.
+6. **Resampling comparison** - SMOTE vs class-weighted, with
+   the side-by-side delta table.
+7. **Temporal within-project CV** - T1=40th percentile,
+   T2=70th percentile per project (Falessi et al. 2020).
+
+Inferential rigour was added via 10000-resample bootstrap
+confidence intervals and Bonferroni-corrected paired Wilcoxon
+signed-rank tests on per-fold metrics. Whether the headline
+ranking *survives* significance correction is now empirically
+answerable from ``pairwise_significance.csv``.

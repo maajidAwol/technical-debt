@@ -90,12 +90,16 @@ def compute_importance(
     )
 
     # ---- Permutation importance ----
+    # n_jobs=-1: permutation importance is embarrassingly parallel
+    # across features. Lossless; the per-feature shuffle is seeded by
+    # ``random_state`` so the result is reproducible regardless of
+    # worker count.
     pi = permutation_importance(
         est, X_test, y_test,
         n_repeats=n_permutation_repeats,
         random_state=RANDOM_STATE,
         scoring="roc_auc",
-        n_jobs=1,
+        n_jobs=-1,
     )
     perm = (
         pd.DataFrame(

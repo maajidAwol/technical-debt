@@ -1,5 +1,7 @@
 # Virtual environment (never commit)
 venv/
+.venv/
+	
 
 # Raw data
 data/raw/

@@ -1,0 +1,230 @@
+[
+  {
+    "variant": "consequence",
+    "model": "logistic_regression",
+    "best_params": {
+      "C": 6.351221010640703,
+      "penalty": "l2"
+    },
+    "best_pr_auc": 0.5149872100664026,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 257.07
+  },
+  {
+    "variant": "consequence",
+    "model": "decision_tree",
+    "best_params": {
+      "max_depth": 11,
+      "min_samples_split": 50,
+      "min_samples_leaf": 23,
+      "criterion": "entropy"
+    },
+    "best_pr_auc": 0.5515641630974286,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 47.19
+  },
+  {
+    "variant": "consequence",
+    "model": "random_forest",
+    "best_params": {
+      "n_estimators": 277,
+      "max_depth": 27,
+      "min_samples_split": 5,
+      "max_features": 0.3
+    },
+    "best_pr_auc": 0.6972984186164,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 375.21
+  },
+  {
+    "variant": "consequence",
+    "model": "xgboost",
+    "best_params": {
+      "n_estimators": 250,
+      "max_depth": 10,
+      "learning_rate": 0.06504856968981275,
+      "subsample": 0.7993292420985183,
+      "colsample_bytree": 0.5780093202212182,
+      "reg_alpha": 1.7699302940633311e-07
+    },
+    "best_pr_auc": 0.7133942170012098,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 250.97
+  },
+  {
+    "variant": "consequence",
+    "model": "lightgbm",
+    "best_params": {
+      "n_estimators": 250,
+      "num_leaves": 122,
+      "learning_rate": 0.06504856968981275,
+      "min_child_samples": 32,
+      "feature_fraction": 0.5780093202212182
+    },
+    "best_pr_auc": 0.7090903725508412,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 342.8
+  },
+  {
+    "variant": "severity",
+    "model": "logistic_regression",
+    "best_params": {
+      "C": 4.42951657056334,
+      "penalty": "l2"
+    },
+    "best_pr_auc": 0.7580914112012448,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 136.55
+  },
+  {
+    "variant": "severity",
+    "model": "decision_tree",
+    "best_params": {
+      "max_depth": 9,
+      "min_samples_split": 36,
+      "min_samples_leaf": 23,
+      "criterion": "entropy"
+    },
+    "best_pr_auc": 0.7671730624221833,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 26.79
+  },
+  {
+    "variant": "severity",
+    "model": "random_forest",
+    "best_params": {
+      "n_estimators": 330,
+      "max_depth": 30,
+      "min_samples_split": 2,
+      "max_features": 0.3
+    },
+    "best_pr_auc": 0.8077089331406272,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 274.76
+  },
+  {
+    "variant": "severity",
+    "model": "xgboost",
+    "best_params": {
+      "n_estimators": 368,
+      "max_depth": 9,
+      "learning_rate": 0.019479420748770217,
+      "subsample": 0.7954516142521078,
+      "colsample_bytree": 0.7189168153137757,
+      "reg_alpha": 0.0013768811334819964
+    },
+    "best_pr_auc": 0.8268150832514379,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 214.71
+  },
+  {
+    "variant": "severity",
+    "model": "lightgbm",
+    "best_params": {
+      "n_estimators": 500,
+      "num_leaves": 76,
+      "learning_rate": 0.01482439077383101,
+      "min_child_samples": 44,
+      "feature_fraction": 0.5480708174265954
+    },
+    "best_pr_auc": 0.8260075899396764,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 322.92
+  },
+  {
+    "variant": "szz",
+    "model": "logistic_regression",
+    "best_params": {
+      "C": 9.75272375951007,
+      "penalty": "l2"
+    },
+    "best_pr_auc": 0.20611309518251747,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 405.19
+  },
+  {
+    "variant": "szz",
+    "model": "decision_tree",
+    "best_params": {
+      "max_depth": 10,
+      "min_samples_split": 37,
+      "min_samples_leaf": 22,
+      "criterion": "entropy"
+    },
+    "best_pr_auc": 0.16240644477848468,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 31.44
+  },
+  {
+    "variant": "szz",
+    "model": "random_forest",
+    "best_params": {
+      "n_estimators": 226,
+      "max_depth": 28,
+      "min_samples_split": 7,
+      "max_features": "sqrt"
+    },
+    "best_pr_auc": 0.2556920858723949,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 166.3
+  },
+  {
+    "variant": "szz",
+    "model": "xgboost",
+    "best_params": {
+      "n_estimators": 273,
+      "max_depth": 5,
+      "learning_rate": 0.032781876533976156,
+      "subsample": 0.569746930326021,
+      "colsample_bytree": 0.6460723242676091,
+      "reg_alpha": 8.528933855762793e-06
+    },
+    "best_pr_auc": 0.2705396422595867,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 156.59
+  },
+  {
+    "variant": "szz",
+    "model": "lightgbm",
+    "best_params": {
+      "n_estimators": 365,
+      "num_leaves": 50,
+      "learning_rate": 0.01942099825171803,
+      "min_child_samples": 30,
+      "feature_fraction": 0.5924272277627636
+    },
+    "best_pr_auc": 0.2852938520578028,
+    "n_trials_completed": 30,
+    "n_trials_requested": 30,
+    "inner_splits": 5,
+    "elapsed_s": 275.97
+  }
+]

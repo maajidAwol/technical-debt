@@ -1,181 +1,194 @@
 """
-Main Pipeline Script for High-Risk Technical Debt Prediction
+Sequential driver for the Technical Debt prediction pipeline.
 
-This script runs the complete ML pipeline:
-1. Load data from Technical Debt Dataset
-2. Create high-risk labels
-3. Extract static and historical features
-4. Train and evaluate ML models
-5. Run cross-project validation
-6. Generate visualizations and results
+Runs every numbered script under ``scripts/`` in order, tee-ing each
+stage's stdout/stderr into ``results/run_logs/<stage>.log``. The script
+streams output to the console live (unbuffered) so progress is visible
+while a long stage is running.
 
-Usage:
+Usage
+-----
+Run everything end-to-end::
+
     python run_pipeline.py
+
+Skip stages that are already cached::
+
+    python run_pipeline.py --skip 1,2,3,4
+
+Start from a particular stage::
+
+    python run_pipeline.py --from 7
+
+Run only a specific subset::
+
+    python run_pipeline.py --only 7b,7c,7d
+
+List the stages without running them::
+
+    python run_pipeline.py --list
+
+Stop on first failure (default) or keep going::
+
+    python run_pipeline.py --continue-on-error
+
+By default every stage runs. Stages 1-4 only need to run when the raw
+``td_V2.db`` changes; their outputs (cleaned parquets, snapshots,
+labels) are otherwise deterministic. Pass ``--from 5`` (or
+``--skip 1,2,3,4``) once those caches exist.
 """
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
 import sys
+import time
+from dataclasses import dataclass
 from pathlib import Path
 
-# Add project root to path
-PROJECT_ROOT = Path(__file__).parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from config import TD_DATASET_PATH, PROCESSED_DATA_DIR, RESULTS_DIR
+PROJECT_ROOT = Path(__file__).parent.resolve()
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
+LOGS_DIR = PROJECT_ROOT / "results" / "run_logs"
 
 
-def check_dataset():
-    """Check if the Technical Debt Dataset is downloaded."""
-    if not TD_DATASET_PATH.exists():
-        print("=" * 60)
-        print("ERROR: Technical Debt Dataset not found!")
-        print("=" * 60)
-        print(f"\nExpected location: {TD_DATASET_PATH}")
-        print("\nPlease download the dataset:")
-        print("  1. Go to: https://github.com/clowee/The-Technical-Debt-Dataset/releases")
-        print("  2. Download 'technical_debt_dataset.db' (Release 2.0)")
-        print(f"  3. Place it in: {TD_DATASET_PATH.parent}")
-        print("\nAlternatively, rename the downloaded file to match the expected name.")
-        return False
-    return True
+@dataclass(frozen=True)
+class Stage:
+    key: str
+    script: str
+    name: str
+    optional: bool = False
 
 
-def run_step(step_name: str, func, *args, **kwargs):
-    """Run a pipeline step with status output."""
-    print(f"\n{'='*60}")
-    print(f"STEP: {step_name}")
-    print('='*60)
-    try:
-        result = func(*args, **kwargs)
-        print(f"\n[SUCCESS] {step_name} completed!")
-        return result
-    except Exception as e:
-        print(f"\n[ERROR] {step_name} failed: {e}")
-        raise
+# Order matters. Keys are short tags used by --skip / --from / --only.
+PIPELINE: tuple[Stage, ...] = (
+    Stage("1",  "01_inspect_db.py",      "Inspect raw DB schema and counts"),
+    Stage("2",  "02_profile_projects.py","Profile projects and select snapshots"),
+    Stage("3",  "03_clean.py",           "Clean raw tables, drop tests/generated paths"),
+    Stage("4",  "04_label.py",           "Build three label variants"),
+    Stage("5",  "05_features.py",        "Engineer static, historical, graph, prior-defect features"),
+    Stage("6",  "06_build_dataset.py",   "Join features + labels into modelling tables"),
+    Stage("7",  "07_train.py",           "Within-project 10-fold CV, 6 models, persist preds, CIs, Wilcoxon"),
+    Stage("7b", "07b_tune.py",           "Optuna hyperparameter tuning (tree ensembles)", optional=True),
+    Stage("7c", "07c_calibrate.py",      "Probability calibration sweep (Platt, isotonic)", optional=True),
+    Stage("7d", "07d_resample.py",       "SMOTE vs class_weight resampling sweep", optional=True),
+    Stage("7e", "07e_temporal.py",       "Temporal within-project split T1 -> T2", optional=True),
+    Stage("8",  "08_lopo.py",            "Leave-One-Project-Out cross-project CV"),
+    Stage("9",  "09_sensitivity.py",     "Sensitivity grid, feature-family ablation, SHAP, permutation"),
+    Stage("10", "10_report.py",          "Render figures and compose docs/06_results.md, 07_discussion.md"),
+)
 
 
-def main():
-    """Run the complete ML pipeline."""
-    print("=" * 60)
-    print("HIGH-RISK TECHNICAL DEBT PREDICTION PIPELINE")
-    print("=" * 60)
-    
-    # Step 0: Check dataset
-    if not check_dataset():
-        return
-    
-    # Import modules
-    from src.data.load_data import get_connection, get_severity_distribution
-    from src.data.labeling import create_high_risk_labels, get_label_statistics, save_labels
-    from src.features.static_features import extract_all_static_features, save_features as save_static
-    from src.features.historical_features import extract_all_historical_features, save_features as save_historical
-    
-    # Step 1: Connect to database
-    conn = run_step("Connecting to database", get_connection)
-    
-    # Step 2: Explore severity distribution
-    print("\n--- Severity Distribution ---")
-    severity_dist = get_severity_distribution(conn)
-    print(severity_dist)
-    
-    # Step 3: Create labels
-    labels_df = run_step("Creating high-risk TD labels", create_high_risk_labels, conn)
-    stats = get_label_statistics(labels_df)
-    print("\n--- Label Statistics ---")
-    for k, v in stats.items():
-        print(f"  {k}: {v}")
-    save_labels(labels_df)
-    
-    # Step 4: Extract static features
-    static_features = run_step("Extracting static code metrics", 
-                               extract_all_static_features, conn)
-    save_static(static_features)
-    
-    # Step 5: Extract historical features
-    historical_features = run_step("Extracting historical change metrics",
-                                   extract_all_historical_features, conn)
-    save_historical(historical_features)
-    
-    conn.close()
-    
-    # Step 6: Train models
-    print("\n" + "=" * 60)
-    print("MODEL TRAINING")
-    print("=" * 60)
-    
-    from src.models.train import (
-        load_dataset, get_models, train_and_evaluate, 
-        train_final_model, get_feature_importance, save_results
-    )
-    
-    X, y, project_ids, feature_names = load_dataset()
-    print(f"\nDataset loaded: {len(y)} samples, {X.shape[1]} features")
-    print(f"High-Risk: {y.sum()} ({y.mean()*100:.1f}%)")
-    
-    models = get_models()
-    results_df = train_and_evaluate(X, y, models)
-    save_results(results_df)
-    
-    # Feature importance
-    best_model_name = results_df.loc[results_df['F1_mean'].idxmax(), 'Model']
-    model, scaler = train_final_model(X, y, best_model_name)
-    importance_df = get_feature_importance(model, feature_names)
-    
-    if importance_df is not None:
-        importance_path = RESULTS_DIR / "tables" / "feature_importance.csv"
-        importance_df.to_csv(importance_path, index=False)
-        print(f"\nFeature importance saved to: {importance_path}")
-    
-    # Step 7: Cross-project validation
-    print("\n" + "=" * 60)
-    print("CROSS-PROJECT VALIDATION")
-    print("=" * 60)
-    
-    from src.models.cross_project import (
-        cross_project_validation, summarize_cross_project_results, 
-        save_results as save_cross_results
-    )
-    
-    cross_results = cross_project_validation(X, y, project_ids)
-    summary = summarize_cross_project_results(cross_results)
-    save_cross_results(cross_results, summary)
-    
-    # Step 8: Generate visualizations
-    print("\n" + "=" * 60)
-    print("GENERATING VISUALIZATIONS")
-    print("=" * 60)
-    
-    from src.visualization.plots import (
-        plot_class_distribution, plot_model_comparison,
-        plot_feature_importance, plot_cross_project_results
-    )
-    
-    plot_class_distribution(y)
-    plot_model_comparison(results_df)
-    if importance_df is not None:
-        plot_feature_importance(importance_df)
-    plot_cross_project_results(cross_results)
-    
-    # Final summary
-    print("\n" + "=" * 60)
-    print("PIPELINE COMPLETED SUCCESSFULLY!")
-    print("=" * 60)
-    print(f"\nResults saved to: {RESULTS_DIR}")
-    print(f"  - tables/model_comparison.csv")
-    print(f"  - tables/feature_importance.csv")
-    print(f"  - tables/cross_project_results.csv")
-    print(f"  - figures/class_distribution.png")
-    print(f"  - figures/model_comparison.png")
-    print(f"  - figures/feature_importance.png")
-    print(f"  - figures/cross_project_results.png")
-    
-    print(f"\n--- Best Model: {best_model_name} ---")
-    best_row = results_df[results_df['Model'] == best_model_name].iloc[0]
-    print(f"  F1-Score: {best_row['F1-Score']}")
-    print(f"  AUC-ROC:  {best_row['AUC-ROC']}")
-    
-    print(f"\n--- Cross-Project Performance ---")
-    print(f"  Avg F1-Score: {summary['f1_score_mean']:.3f} ± {summary['f1_score_std']:.3f}")
-    print(f"  Avg AUC-ROC:  {summary['auc_roc_mean']:.3f} ± {summary['auc_roc_std']:.3f}")
+def _parse_keys(value: str) -> set[str]:
+    return {k.strip() for k in value.split(",") if k.strip()}
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--skip", type=str, default="", help="Comma-separated stage keys to skip (e.g. 1,2,3,4).")
+    p.add_argument("--from", dest="from_stage", type=str, default=None, help="Start from this stage key.")
+    p.add_argument("--only", type=str, default=None, help="Comma-separated stage keys to run, ignoring others.")
+    p.add_argument("--list", action="store_true", help="List stages and exit.")
+    p.add_argument("--continue-on-error", action="store_true", help="Keep going after a stage fails.")
+    p.add_argument("--python", type=str, default=None, help="Path to the Python interpreter to use (default: sys.executable).")
+    return p.parse_args()
+
+
+def _select_stages(args: argparse.Namespace) -> list[Stage]:
+    if args.only:
+        only = _parse_keys(args.only)
+        return [s for s in PIPELINE if s.key in only]
+
+    skip = _parse_keys(args.skip)
+    from_idx = 0
+    if args.from_stage:
+        keys = [s.key for s in PIPELINE]
+        if args.from_stage not in keys:
+            raise SystemExit(f"--from: unknown stage key {args.from_stage!r}. Valid: {keys}")
+        from_idx = keys.index(args.from_stage)
+    return [s for i, s in enumerate(PIPELINE) if i >= from_idx and s.key not in skip]
+
+
+def _print_header(label: str) -> None:
+    bar = "=" * 78
+    print(f"\n{bar}\n{label}\n{bar}", flush=True)
+
+
+def _run_stage(stage: Stage, python: str) -> tuple[int, float]:
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOGS_DIR / f"stage{stage.key}.log"
+    err_path = LOGS_DIR / f"stage{stage.key}.err"
+
+    _print_header(f"[Stage {stage.key}] {stage.name}\n  script: scripts/{stage.script}\n  log:    {log_path.relative_to(PROJECT_ROOT)}")
+
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+
+    t0 = time.time()
+    with log_path.open("w", encoding="utf-8") as fout, err_path.open("w", encoding="utf-8") as ferr:
+        proc = subprocess.Popen(
+            [python, "-u", str(SCRIPTS_DIR / stage.script)],
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1,
+        )
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            fout.write(line)
+            fout.flush()
+        rc = proc.wait()
+    elapsed = time.time() - t0
+
+    if err_path.stat().st_size == 0:
+        err_path.unlink(missing_ok=True)
+
+    return rc, elapsed
+
+
+def main() -> int:
+    args = parse_args()
+    python = args.python or sys.executable
+
+    stages = _select_stages(args)
+    if not stages:
+        print("No stages selected.", file=sys.stderr)
+        return 1
+
+    if args.list:
+        print("Stages that will run:")
+        for s in stages:
+            tag = " (optional)" if s.optional else ""
+            print(f"  [{s.key:>2}] {s.name}{tag}  -- scripts/{s.script}")
+        return 0
+
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Pipeline runner using interpreter: {python}")
+    print(f"Logs dir: {LOGS_DIR.relative_to(PROJECT_ROOT)}")
+    print(f"Will run {len(stages)} stage(s): {[s.key for s in stages]}")
+
+    overall_t0 = time.time()
+    failed: list[tuple[str, int]] = []
+    for stage in stages:
+        rc, elapsed = _run_stage(stage, python)
+        status = "OK" if rc == 0 else f"FAIL (rc={rc})"
+        print(f"\n[Stage {stage.key}] {status}  elapsed={elapsed/60:.2f} min", flush=True)
+        if rc != 0:
+            failed.append((stage.key, rc))
+            if not args.continue_on_error:
+                break
+
+    overall = time.time() - overall_t0
+    _print_header(f"Pipeline finished. Total wall-clock: {overall/60:.2f} min")
+    if failed:
+        print(f"Failed stages: {failed}")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

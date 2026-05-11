@@ -227,6 +227,146 @@ def render_results() -> Path:
         lines.append(f"### 6.8.{i} Top-15 SHAP features - {v}\n")
         lines.append(_tbl_md(df, floatfmt=".4f") + "\n")
 
+    # ----- 6.9 Hyperparameter tuning -----
+    tuned_path = TABLES_DIR / "within_project_summary_tuned.csv"
+    tuned_json = TABLES_DIR / "tuned_params.json"
+    if tuned_path.exists():
+        lines.append("## 6.9 Hyperparameter tuning (Stage 7b)\n")
+        lines.append(
+            "Per-(variant, model) Optuna random-TPE search optimising mean "
+            "PR-AUC on an inner stratified K-fold split (`TUNING_TRIALS` "
+            "trials). The selected configuration is then re-evaluated on "
+            "the canonical outer 10-fold CV. SVM is excluded from tuning "
+            "(see Research Log 2026-04-27 / refinement 3).\n"
+        )
+        tuned_summary = pd.read_csv(tuned_path)
+        tuned_keep = ["variant", "model"] + [f"{m}_mean" for m in METRIC_HEADS if f"{m}_mean" in tuned_summary.columns]
+        lines.append(_tbl_md(tuned_summary[tuned_keep], floatfmt=".3f") + "\n")
+        if tuned_json.exists():
+            lines.append(
+                f"Selected hyperparameters per (variant, model) are persisted "
+                f"in ``{tuned_json.name}``. The tuner respects the proposal's "
+                f"PR-AUC objective for imbalanced classes (Saito and Rehmsmeier "
+                f"2015).\n"
+            )
+
+    # ----- 6.10 Bootstrap CIs + significance -----
+    ci_path = TABLES_DIR / "within_project_summary_with_ci.csv"
+    sig_path = TABLES_DIR / "pairwise_significance.csv"
+    if ci_path.exists():
+        lines.append("## 6.10 Confidence intervals and pairwise significance\n")
+        lines.append(
+            "Bootstrap 95% CIs (10000 resamples, percentile method) are computed "
+            "on per-fold metrics for the within-project summary. Pairwise "
+            "Wilcoxon signed-rank tests are run on per-fold F1 and PR-AUC; "
+            "p-values are Bonferroni-corrected per variant family (15 pairs "
+            "for 6 within-project models, 10 for the 5-model LOPO scope).\n"
+        )
+        ci = pd.read_csv(ci_path)
+        ci_keep = ["variant", "model"]
+        for m in ("f1", "pr_auc", "ce_at_20"):
+            for suf in (f"{m}_mean", f"{m}_ci_low", f"{m}_ci_high"):
+                if suf in ci.columns:
+                    ci_keep.append(suf)
+        lines.append(_tbl_md(ci[ci_keep], floatfmt=".3f") + "\n")
+    if sig_path.exists():
+        sig = pd.read_csv(sig_path)
+        if not sig.empty:
+            lines.append("### 6.10.1 Pairwise Wilcoxon significance (within-project)\n")
+            sig_keep = [
+                c
+                for c in (
+                    "variant",
+                    "metric",
+                    "model_a",
+                    "model_b",
+                    "n_pairs",
+                    "mean_a",
+                    "mean_b",
+                    "mean_diff",
+                    "p_value",
+                    "p_value_bonferroni",
+                )
+                if c in sig.columns
+            ]
+            lines.append(_tbl_md(sig[sig_keep], floatfmt=".4f") + "\n")
+
+    # ----- 6.11 Probability calibration -----
+    calib_path = TABLES_DIR / "calibration_summary.csv"
+    if calib_path.exists():
+        lines.append("## 6.11 Probability calibration (Stage 7c)\n")
+        lines.append(
+            "Platt scaling and isotonic regression are wrapped via "
+            "`CalibratedClassifierCV` with an inner stratified K-fold split, "
+            "then evaluated on the canonical outer 10-fold CV. Lower Brier "
+            "score, lower negative log-likelihood and lower Expected "
+            "Calibration Error (ECE) all indicate better calibration. The "
+            "uncalibrated baseline is included for reference.\n"
+        )
+        calib = pd.read_csv(calib_path)
+        calib_keep = ["variant", "model", "method"]
+        for m in ("pr_auc", "f1", "brier", "nll", "ece"):
+            if f"{m}_mean" in calib.columns:
+                calib_keep.append(f"{m}_mean")
+        lines.append(_tbl_md(calib[calib_keep], floatfmt=".4f") + "\n")
+        lines.append("See Figure ``fig_calibration_reliability``.\n")
+
+    # ----- 6.12 Resampling comparison (SMOTE vs class-weighted) -----
+    smote_path = TABLES_DIR / "resampling_comparison.csv"
+    if smote_path.exists():
+        lines.append("## 6.12 Resampling comparison (Stage 7d)\n")
+        lines.append(
+            "SMOTE oversampling on the *training fold only* vs the established "
+            "`class_weight='balanced'` strategy. The delta column reports "
+            "(SMOTE - class-weight) on each metric; positive = SMOTE wins.\n"
+        )
+        smote = pd.read_csv(smote_path)
+        lines.append(_tbl_md(smote, floatfmt=".3f") + "\n")
+
+    # ----- 6.13 Temporal within-project validation -----
+    temp_path = TABLES_DIR / "temporal_summary.csv"
+    if temp_path.exists():
+        lines.append("## 6.13 Temporal within-project validation (Stage 7e)\n")
+        lines.append(
+            "For each project we pick `T1` (40th percentile of commit dates) "
+            "and `T2` (70th percentile), rebuild features and consequence "
+            "labels at each, train at T1 and test at T2. This is the future-"
+            "data sanity check Falessi et al. (2020) recommend for defect "
+            "prediction benchmarks. Mean across eligible projects:\n"
+        )
+        temp = pd.read_csv(temp_path)
+        keep = ["model"] + [f"{m}_mean" for m in METRIC_HEADS if f"{m}_mean" in temp.columns]
+        lines.append(_tbl_md(temp[keep], floatfmt=".3f") + "\n")
+
+    # ----- 6.14 Confusion matrices + per-project errors -----
+    pp_err_path = TABLES_DIR / "per_project_errors.csv"
+    if pp_err_path.exists():
+        lines.append("## 6.14 Confusion matrices and per-project errors\n")
+        lines.append(
+            "From the persisted within-project predictions "
+            "(`within_project_predictions.parquet`), confusion matrices are "
+            "computed per (variant, model) over all 10 outer folds combined. "
+            "Per-project error rates surface heterogeneity that the global "
+            "F1 hides.\n"
+        )
+        pp = pd.read_csv(pp_err_path)
+        # Show only the consequence variant top-10 worst projects to keep
+        # the markdown readable; full table is the CSV.
+        cons_pp = pp[pp["variant"] == "consequence"].copy()
+        if not cons_pp.empty:
+            worst = cons_pp.sort_values("error_rate", ascending=False).head(10)
+            keep = [
+                c
+                for c in ("variant", "model", "project_id", "n", "tp", "fp", "fn", "tn", "error_rate")
+                if c in worst.columns
+            ]
+            lines.append(
+                "Top-10 worst (variant, model, project) cells by error rate "
+                "(consequence variant):\n"
+            )
+            lines.append(_tbl_md(worst[keep], floatfmt=".3f") + "\n")
+        lines.append("See Figure ``fig_confusion_matrices``.\n")
+
     # ----- done -----
     out_path = DOCS_DIR / "06_results.md"
     out_path.write_text("\n".join(lines), encoding="utf-8")
@@ -318,7 +458,44 @@ def render_discussion_scaffold() -> Path:
         - **Conclusion**: stratified K-fold allows same-project
           contamination, inflating within-project numbers; the LOPO
           numbers in Section 6.5 should be taken as the realistic
-          deployment estimate.
+          deployment estimate. The temporal T1->T2 split in Section
+          6.13 (when run) provides an additional sanity check that
+          the within-project numbers are not an artefact of random
+          shuffling.
+
+        ## 7.6 Refined Extended enhancements (2026-04-27)
+
+        The pipeline was extended with seven enhancements explicitly
+        called out in the proposal but missing from the original
+        implementation:
+
+        1. **Co-change graph features** (Jiang et al. 2024/2025;
+           proposal Section 2.2) - degree, weighted strength,
+           betweenness, closeness, clustering, PageRank, and recency
+           neighbour counts at 30/90 days.
+        2. **Pre-snapshot defect signals** (Hassan 2009; Kamei 2013;
+           proposal Table 1 "optional") - bug-fix commit counts,
+           SZZ-inducing history (autocorrelation-guarded for the SZZ
+           variant), Jira-linked fix history.
+        3. **SVM activation** in within-project CV - completes the
+           DT/RF/SVM/GBM comparison the proposal commits to. SVM is
+           explicitly excluded from LOPO due to its O(N^2) kernel
+           cost on Apache-scale data; the rationale is documented in
+           the research log.
+        4. **Hyperparameter tuning** - 30-trial Optuna search optimising
+           PR-AUC. Tuned configurations are persisted for auditability.
+        5. **Probability calibration** - Platt and isotonic, with Brier
+           / NLL / ECE diagnostics and reliability diagrams.
+        6. **Resampling comparison** - SMOTE vs class-weighted, with
+           the side-by-side delta table.
+        7. **Temporal within-project CV** - T1=40th percentile,
+           T2=70th percentile per project (Falessi et al. 2020).
+
+        Inferential rigour was added via 10000-resample bootstrap
+        confidence intervals and Bonferroni-corrected paired Wilcoxon
+        signed-rank tests on per-fold metrics. Whether the headline
+        ranking *survives* significance correction is now empirically
+        answerable from ``pairwise_significance.csv``.
         """
     ).strip() + "\n"
 

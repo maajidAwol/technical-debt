@@ -1,22 +1,58 @@
 """
-Generator for ``notebooks/td_pipeline_colab.ipynb``.
+Generator for the Google Colab replication notebooks.
 
-Reads every src/ module verbatim from disk and assembles a Colab-ready
-notebook that reproduces Stages 1-10 of the technical-debt prediction
-pipeline. Run from the repository root:
+Reads every src/ module verbatim from disk and assembles two Colab-ready
+notebooks that reproduce Stages 1-10 of the technical-debt prediction
+pipeline:
 
-    python notebooks/_build_notebook.py
+    notebooks/td_pipeline_colab.ipynb       full 22-project, stages 1-10
+    notebooks/td_pipeline_colab_demo.ipynb  5-project subset, stages 1-7
 
-After building, this script can be deleted; the .ipynb is
+A third "standalone" variant (src/ inlined, no %%writefile) is also
+produced for ad-hoc experimentation.
+
+Run from the repository root:
+
+    python notebooks/_build_notebook.py                  # all outputs
+    python notebooks/_build_notebook.py --mode full      # td_pipeline_colab.ipynb only
+    python notebooks/_build_notebook.py --mode demo      # td_pipeline_colab_demo.ipynb only
+    python notebooks/_build_notebook.py --mode standalone
+
+After building, this script can be deleted; the .ipynb files are
 self-contained.
+
+Hardening applied to both notebooks:
+  * True copy (not symlink) of td_V2.db onto Colab local SSD with
+    SHA-256 verification and 3-attempt FUSE retry - root-cause fix
+    for the runtime disconnections seen on the 1.54 GB SQLite file
+    when read straight off Drive.
+  * Idempotent stage-skip with checkpoints rsynced to Drive after
+    every stage - reconnect-and-rerun is safe.
+  * Colab tier detection (free / pro / pro+) drives TD_N_JOBS so
+    the pipeline does not oversubscribe a 2-core / 12 GB free VM.
+  * tqdm.auto progress bars throughout.
 """
 from __future__ import annotations
 
+import argparse
+import copy
 import json
+import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-OUT = REPO / "notebooks" / "td_pipeline_colab.ipynb"
+OUT_FULL = REPO / "notebooks" / "td_pipeline_colab.ipynb"
+OUT_DEMO = REPO / "notebooks" / "td_pipeline_colab_demo.ipynb"
+OUT_STANDALONE = REPO / "notebooks" / "td_pipeline_colab_standalone.ipynb"
+OUT = OUT_FULL  # legacy alias used by the existing build flow
+
+DEMO_PROJECTS = [
+    "org.apache:archiva",
+    "org.apache:codec",
+    "org.apache:commons-jexl",
+    "org.apache:configuration",
+    "org.apache:httpclient",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -71,11 +107,16 @@ SRC_MODULES: list[tuple[str, str, str]] = [
     ("/content/src/data/labeling.py",         "src/data/labeling.py",         "Three-variant label computation + agreement metrics."),
     ("/content/src/features/static_features.py", "src/features/static_features.py", "Per-basename SonarQube + project-context features at t."),
     ("/content/src/features/historical_features.py", "src/features/historical_features.py", "Per-basename Git process features (pre-snapshot)."),
-    ("/content/src/models/train.py",          "src/models/train.py",          "Within-project stratified K-fold + metric battery."),
+    ("/content/src/features/graph_features.py", "src/features/graph_features.py", "Co-change graph centrality features (Stage 5 enhancement)."),
+    ("/content/src/features/priordefect_features.py", "src/features/priordefect_features.py", "Pre-snapshot bugfix / SZZ / Jira defect-history features."),
+    ("/content/src/models/train.py",          "src/models/train.py",          "Within-project stratified K-fold + calibration + SMOTE."),
     ("/content/src/models/cross_project.py",  "src/models/cross_project.py",  "Leave-One-Project-Out cross-project validation."),
+    ("/content/src/models/tuning.py",         "src/models/tuning.py",         "Optuna hyperparameter tuning (Stage 7b)."),
+    ("/content/src/models/temporal.py",       "src/models/temporal.py",       "Temporal within-project T1->T2 split (Stage 7e)."),
     ("/content/src/analysis/sensitivity.py",  "src/analysis/sensitivity.py",  "Sensitivity grid for consequence labelling."),
     ("/content/src/analysis/ablation.py",     "src/analysis/ablation.py",     "Feature-group ablation."),
     ("/content/src/analysis/importance.py",   "src/analysis/importance.py",   "SHAP + permutation importance."),
+    ("/content/src/analysis/significance.py", "src/analysis/significance.py", "Bootstrap CIs + Wilcoxon paired tests (Stage 7 inspect)."),
     ("/content/src/reporting/figures.py",     "src/reporting/figures.py",     "Publication-ready figures (PNG + PDF)."),
     ("/content/src/reporting/render.py",      "src/reporting/render.py",      "Render docs/06_results.md and 07_discussion.md from artefacts."),
 ]
@@ -165,9 +206,10 @@ cells.append(md(
     "9. [Stage 6 - Dataset assembly](#stage-6)\n"
     "10. [Stage 7 - Within-project 10-fold CV](#stage-7)\n"
     "11. [Stage 8 - LOPO cross-project CV](#stage-8)\n"
-    "12. [Stage 9 - Sensitivity and ablation](#stage-9)\n"
-    "13. [Stage 10 - SHAP, figures and reports](#stage-10)\n"
-    "14. [Finalisation - runtime, zip, copy to Drive](#finalisation)\n"
+    "12. [Collision analysis (construct validity)](#collision-analysis)\n"
+    "13. [Stage 9 - Sensitivity and ablation](#stage-9)\n"
+    "14. [Stage 10 - SHAP, figures and reports](#stage-10)\n"
+    "15. [Finalisation - runtime, zip, copy to Drive](#finalisation)\n"
 ))
 
 
@@ -246,6 +288,12 @@ cells.append(code(
     "    ('tabulate', 'tabulate>=0.9.0'),\n"
     "    ('scipy', 'scipy>=1.11.0'),\n"
     "    ('tqdm', 'tqdm>=4.65.0'),\n"
+    "    # Graph centralities. Use the modern PyPI name 'igraph' (NOT 'python-igraph',\n"
+    "    # which is the deprecated name and fails on Colab's pip).\n"
+    "    ('igraph', 'igraph>=0.11'),\n"
+    "    ('networkx', 'networkx>=3.2'),\n"
+    "    ('joblib', 'joblib>=1.3.0'),\n"
+    "    ('optuna', 'optuna>=3.5.0'),\n"
     "]\n"
     "missing = [pin for mod, pin in REQUIRED if importlib.util.find_spec(mod) is None]\n"
     "if missing:\n"
@@ -294,17 +342,27 @@ cells.append(code(
 ))
 
 cells.append(code(
-    "# Cell E: scaffold the project tree under /content and symlink the\n"
-    "# database into /content/data/raw so config.py finds it.\n"
-    "import shutil\n"
+    "# Cell E: scaffold /content and copy the SQLite database off Drive.\n"
+    "#\n"
+    "# Why a true copy and not a symlink: when the SQLite file is read through\n"
+    "# Drive's FUSE mount every page request becomes a network round-trip.\n"
+    "# On a 1.54 GB DB this triggers Drive's I/O quota and frequently kills\n"
+    "# the Colab runtime mid-stage (the 'runtime disconnected' symptom).\n"
+    "# A true copy moves the file onto Colab's local SSD, where reads are\n"
+    "# 30-50 times faster and never touch the network again. The copy is\n"
+    "# idempotent: if a previous run already wrote the file with a matching\n"
+    "# SHA-256 prefix, the cell skips the copy.\n"
+    "import shutil, hashlib, os\n"
+    "from tqdm.auto import tqdm\n"
     "\n"
     "CONTENT = Path('/content') if IN_COLAB else (Path.cwd() / 'colab_workdir')\n"
     "CONTENT.mkdir(parents=True, exist_ok=True)\n"
     "\n"
     "for sub in [\n"
     "    'src/data', 'src/features', 'src/models', 'src/analysis', 'src/reporting',\n"
+    "    'tools',\n"
     "    'data/raw', 'data/processed', 'data/external',\n"
-    "    'results/tables', 'results/figures',\n"
+    "    'results/tables', 'results/figures', 'results/run_logs',\n"
     "    'docs',\n"
     "]:\n"
     "    (CONTENT / sub).mkdir(parents=True, exist_ok=True)\n"
@@ -315,19 +373,61 @@ cells.append(code(
     "    if not init.exists():\n"
     "        init.write_text('', encoding='utf-8')\n"
     "\n"
-    "DB_LINK = CONTENT / 'data' / 'raw' / 'td_V2.db'\n"
-    "if not DB_LINK.exists():\n"
-    "    try:\n"
-    "        DB_LINK.symlink_to(DB_PATH)\n"
-    "        print(f'Symlinked DB: {DB_LINK} -> {DB_PATH}')\n"
-    "    except (OSError, NotImplementedError) as exc:\n"
-    "        print(f'Symlink unavailable ({exc}); copying instead (slow on first run).')\n"
-    "        shutil.copy2(DB_PATH, DB_LINK)\n"
+    "DB_LOCAL = CONTENT / 'data' / 'raw' / 'td_V2.db'\n"
+    "\n"
+    "def _sha256_prefix(path, n_mib=64):\n"
+    "    h = hashlib.sha256()\n"
+    "    target = n_mib * 1024 * 1024\n"
+    "    read = 0\n"
+    "    with open(path, 'rb') as fh:\n"
+    "        while read < target:\n"
+    "            chunk = fh.read(1024 * 1024)\n"
+    "            if not chunk:\n"
+    "                break\n"
+    "            h.update(chunk); read += len(chunk)\n"
+    "    return h.hexdigest()[:16]\n"
+    "\n"
+    "def _copy_with_progress(src, dst, attempt):\n"
+    "    total = src.stat().st_size\n"
+    "    chunk = 16 * 1024 * 1024  # 16 MiB; FUSE copes well with this size\n"
+    "    with open(src, 'rb') as fin, open(dst, 'wb') as fout, \\\n"
+    "         tqdm(total=total, unit='B', unit_scale=True, unit_divisor=1024,\n"
+    "              desc=f'Copy DB attempt {attempt}', leave=False) as bar:\n"
+    "        while True:\n"
+    "            buf = fin.read(chunk)\n"
+    "            if not buf:\n"
+    "                break\n"
+    "            fout.write(buf); bar.update(len(buf))\n"
+    "\n"
+    "if DB_LOCAL.exists() and _sha256_prefix(DB_LOCAL) == DB_FINGERPRINT:\n"
+    "    print(f'DB already copied locally at {DB_LOCAL} (SHA matches Drive copy).')\n"
     "else:\n"
-    "    print(f'DB already linked at {DB_LINK}')\n"
+    "    last_exc = None\n"
+    "    for _attempt in range(1, 4):\n"
+    "        try:\n"
+    "            _copy_with_progress(DB_PATH, DB_LOCAL, _attempt)\n"
+    "            local_sha = _sha256_prefix(DB_LOCAL)\n"
+    "            if local_sha != DB_FINGERPRINT:\n"
+    "                raise OSError(f'SHA mismatch after copy: {local_sha} vs {DB_FINGERPRINT}')\n"
+    "            print(f'DB copied to local SSD at {DB_LOCAL}; SHA prefix verified.')\n"
+    "            break\n"
+    "        except (OSError, FileNotFoundError) as _exc:\n"
+    "            last_exc = _exc\n"
+    "            print(f'  copy attempt {_attempt} failed: {_exc}; retrying after 5s...')\n"
+    "            import time as _time\n"
+    "            _time.sleep(5)\n"
+    "    else:\n"
+    "        raise RuntimeError(\n"
+    "            f'Failed to copy {DB_PATH} to {DB_LOCAL} after 3 attempts: {last_exc}'\n"
+    "        )\n"
+    "\n"
+    "# config.py resolves to RAW_DATA_DIR / 'td_V2.db' which is exactly DB_LOCAL,\n"
+    "# so no env-var override is needed.\n"
     "\n"
     "if str(CONTENT) not in sys.path:\n"
     "    sys.path.insert(0, str(CONTENT))\n"
+    "\n"
+    "os.environ['TD_REPO_ROOT'] = str(CONTENT.resolve())\n"
     "\n"
     "# Persist the env receipt now that results/ exists\n"
     "(CONTENT / 'results' / 'env_receipt.json').write_text(\n"
@@ -339,6 +439,134 @@ cells.append(code(
     "RECOMPUTE = False  # set True to force re-execution of cached stages\n"
     "\n"
     "print('Working tree at:', CONTENT)\n"
+))
+
+cells.append(md(
+    "## Runtime tier detection and parallelism budget\n"
+    "\n"
+    "Colab offers three free/paid tiers with very different memory and CPU budgets:\n"
+    "\n"
+    "| Tier        | RAM   | CPUs | Recommended `TD_N_JOBS` |\n"
+    "|-------------|------:|-----:|------------------------:|\n"
+    "| Free (T4)   | 12 GB | 2    | 1                       |\n"
+    "| Pro         | 25 GB | 4    | 2                       |\n"
+    "| Pro+ / High-RAM | 51 GB | 8 | -1 (use all)            |\n"
+    "\n"
+    "The next cell auto-detects the tier and sets `TD_N_JOBS` so the pipeline does not oversubscribe a 2-core free VM. Stage 5 (graph features) and Stage 7e (temporal) honour this budget at the project-loop level; inner model fits stay at `n_jobs=1` to avoid CPU thrash."
+))
+
+cells.append(code(
+    "# Cell F: tier-aware parallelism budget for stages 5 and 7e.\n"
+    "try:\n"
+    "    import psutil\n"
+    "    _ram_gb = psutil.virtual_memory().total / (1024 ** 3)\n"
+    "except ImportError:\n"
+    "    # /proc/meminfo fallback\n"
+    "    try:\n"
+    "        with open('/proc/meminfo') as _mf:\n"
+    "            for _line in _mf:\n"
+    "                if _line.startswith('MemTotal:'):\n"
+    "                    _ram_kb = int(_line.split()[1]); _ram_gb = _ram_kb / (1024 ** 2); break\n"
+    "            else:\n"
+    "                _ram_gb = 0.0\n"
+    "    except FileNotFoundError:\n"
+    "        _ram_gb = 0.0\n"
+    "_n_cpu = os.cpu_count() or 2\n"
+    "if _ram_gb >= 40 and _n_cpu >= 8:\n"
+    "    _tier = 'pro+'; _jobs = -1\n"
+    "elif _ram_gb >= 20 and _n_cpu >= 4:\n"
+    "    _tier = 'pro'; _jobs = 2\n"
+    "else:\n"
+    "    _tier = 'free'; _jobs = 1\n"
+    "os.environ['TD_N_JOBS'] = str(_jobs)\n"
+    "print(f'Detected tier: {_tier:<5}  RAM={_ram_gb:.1f} GB  CPUs={_n_cpu}  TD_N_JOBS={_jobs}')\n"
+    "if _tier == 'free':\n"
+    "    print('NOTE: free tier uses TD_N_JOBS=1 to avoid OOM on the largest project (hive, 5307 basenames).')\n"
+    "    print('      Stages 8 (LOPO) and 9 (sensitivity grid) remain enabled but will be slower.')\n"
+))
+
+cells.append(md(
+    "## Drive checkpointing helper\n"
+    "\n"
+    "Every stage cell starts by checking whether its output artefacts already exist either locally or in `MyDrive/td_pipeline/checkpoints/<stageNN>/`. If found, the cell prints a *skipping* banner and copies the cached artefacts into `/content/` so downstream stages can use them.\n"
+    "\n"
+    "After every successful stage, the cell rsync's its outputs back to Drive. The net effect: a runtime disconnect at, say, stage 7c only loses stage-7c work; reconnecting and re-running the notebook resumes from stage 7c with no data loss.\n"
+))
+
+cells.append(code(
+    "# Cell G: stage checkpoint helpers (idempotent stage-skip + Drive backup).\n"
+    "CHECKPOINTS = DRIVE_ROOT / 'checkpoints'\n"
+    "CHECKPOINTS.mkdir(parents=True, exist_ok=True)\n"
+    "\n"
+    "def stage_outputs_exist(*paths):\n"
+    "    \"\"\"True iff every relative-to-CONTENT path exists either locally or in the\n"
+    "    Drive checkpoint folder for that stage. Local paths are restored from\n"
+    "    Drive when missing.\"\"\"\n"
+    "    all_present = True\n"
+    "    for rel in paths:\n"
+    "        local = CONTENT / rel\n"
+    "        if local.exists():\n"
+    "            continue\n"
+    "        backup = CHECKPOINTS / rel\n"
+    "        if backup.exists():\n"
+    "            local.parent.mkdir(parents=True, exist_ok=True)\n"
+    "            shutil.copy2(backup, local)\n"
+    "            print(f'  restored from Drive: {rel}')\n"
+    "        else:\n"
+    "            all_present = False\n"
+    "    return all_present\n"
+    "\n"
+    "def checkpoint_to_drive(*paths):\n"
+    "    \"\"\"Mirror local stage outputs back to Drive so a runtime disconnect cannot\n"
+    "    discard them.\"\"\"\n"
+    "    for rel in paths:\n"
+    "        local = CONTENT / rel\n"
+    "        if not local.exists():\n"
+    "            continue\n"
+    "        backup = CHECKPOINTS / rel\n"
+    "        backup.parent.mkdir(parents=True, exist_ok=True)\n"
+    "        shutil.copy2(local, backup)\n"
+    "    print(f'  checkpointed {len(paths)} artefact(s) to Drive: {CHECKPOINTS}')\n"
+    "\n"
+    "print(f'Checkpoint store: {CHECKPOINTS}')\n"
+))
+
+cells.append(md(
+    "## Anti-disconnect keep-alive (optional, recommended for the full notebook)\n"
+    "\n"
+    "Colab disconnects idle browser tabs after about 90 minutes; if your wall-clock for the full pipeline exceeds that, the runtime will be recycled and you must reconnect manually. Two mitigations:\n"
+    "\n"
+    "1. **Browser-side keep-alive (preferred for the *full* notebook).** Open the browser developer console (F12 -> Console) and paste this snippet, which clicks the Connect button every 60 seconds:\n"
+    "\n"
+    "   ```javascript\n"
+    "   function _td_keepAlive() {\n"
+    "     const btn = document.querySelector('colab-connect-button');\n"
+    "     if (btn) btn.click();\n"
+    "   }\n"
+    "   setInterval(_td_keepAlive, 60 * 1000);\n"
+    "   ```\n"
+    "\n"
+    "2. **Notebook-side ping (works without dev console).** The next cell schedules an in-kernel ping every five minutes, which is sufficient for most idle-disconnect scenarios.\n"
+    "\n"
+    "If the runtime *does* disconnect, simply reconnect and re-run from the top - every previously completed stage is restored from Drive and skipped automatically thanks to the checkpoint helper above."
+))
+
+cells.append(code(
+    "# Cell H: notebook-side keep-alive ping (optional). Comment out for short runs.\n"
+    "from IPython.display import Javascript, display\n"
+    "if IN_COLAB:\n"
+    "    display(Javascript('''\n"
+    "        if (typeof window._tdKeepAliveTimer === 'undefined') {\n"
+    "          window._tdKeepAliveTimer = setInterval(function() {\n"
+    "            const btn = document.querySelector('colab-connect-button');\n"
+    "            if (btn) btn.click();\n"
+    "          }, 5 * 60 * 1000);\n"
+    "          console.log('TD pipeline keep-alive installed (5 min interval).');\n"
+    "        }\n"
+    "    '''))\n"
+    "    print('Keep-alive installed.')\n"
+    "else:\n"
+    "    print('Local run; keep-alive not needed.')\n"
 ))
 
 
@@ -389,9 +617,11 @@ cells.append(code(
     "\n"
     "import config  # noqa: F401\n"
     "from src.data import load_data, snapshot, clean, szz, labeling  # noqa: F401\n"
-    "from src.features import static_features, historical_features  # noqa: F401\n"
-    "from src.models import train, cross_project  # noqa: F401\n"
-    "from src.analysis import sensitivity, ablation, importance  # noqa: F401\n"
+    "from src.features import (  # noqa: F401\n"
+    "    static_features, historical_features, graph_features, priordefect_features,\n"
+    ")\n"
+    "from src.models import train, cross_project, tuning, temporal  # noqa: F401\n"
+    "from src.analysis import sensitivity, ablation, importance, significance  # noqa: F401\n"
     "from src.reporting import figures, render  # noqa: F401\n"
     "\n"
     "print('All src/ modules imported.')\n"
@@ -760,25 +990,33 @@ cells.append(md(
 cells.append(code(
     "from src.features.static_features import build_static_features_for_project\n"
     "from src.features.historical_features import build_historical_features_for_project\n"
+    "from src.features.graph_features import build_graph_features_for_project\n"
+    "from src.features.priordefect_features import build_priordefect_features_for_project\n"
     "\n"
     "def _load_clean_for_features():\n"
     "    _commits = pd.read_parquet(PROCESSED_DATA_DIR / 'clean_git_commits.parquet')\n"
     "    _changes = pd.read_parquet(PROCESSED_DATA_DIR / 'clean_git_commits_changes.parquet')\n"
     "    _issues = pd.read_parquet(PROCESSED_DATA_DIR / 'clean_sonar_issues.parquet')\n"
     "    _measures = pd.read_parquet(PROCESSED_DATA_DIR / 'clean_sonar_measures.parquet')\n"
+    "    _szz_df = pd.read_parquet(PROCESSED_DATA_DIR / 'clean_szz.parquet')\n"
+    "    _jira = pd.read_parquet(PROCESSED_DATA_DIR / 'clean_jira_issues.parquet')\n"
     "    for _df, _cols in (\n"
     "        (_commits, ['AUTHOR_DATE', 'COMMITTER_DATE']),\n"
     "        (_changes, ['DATE']),\n"
     "        (_issues, ['CREATION_DATE', 'CLOSE_DATE']),\n"
     "        (_measures, ['analysis_date']),\n"
+    "        (_szz_df, ['fix_date', 'induce_date']),\n"
+    "        (_jira, ['CREATION_DATE', 'RESOLUTION_DATE', 'UPDATE_DATE', 'COMMIT_DATE']),\n"
     "    ):\n"
     "        for _c in _cols:\n"
     "            if _c in _df.columns and _df[_c].dtype.kind == 'M' and _df[_c].dt.tz is None:\n"
     "                _df[_c] = _df[_c].dt.tz_localize('UTC')\n"
     "    return {'commits': _commits, 'changes': _changes,\n"
-    "            'sonar_issues': _issues, 'sonar_measures': _measures}\n"
+    "            'sonar_issues': _issues, 'sonar_measures': _measures,\n"
+    "            'szz': _szz_df, 'jira': _jira}\n"
     "\n"
-    "_required = ['features_static.parquet', 'features_historical.parquet']\n"
+    "_required = ['features_static.parquet', 'features_historical.parquet',\n"
+    "             'features_graph.parquet', 'features_priordefect.parquet']\n"
     "_have_all = all((PROCESSED_DATA_DIR / p).exists() for p in _required)\n"
     "if _have_all and not RECOMPUTE:\n"
     "    print('[Stage 5] Cached feature parquets present; skipping.')\n"
@@ -788,7 +1026,7 @@ cells.append(code(
     "    _data = _load_clean_for_features()\n"
     "    _snaps = load_snapshots(PROCESSED_DATA_DIR / 'project_snapshots.parquet')\n"
     "    _eligible = _snaps[_snaps['eligible']].sort_values('project_id')\n"
-    "    _static_parts, _hist_parts, _summary = [], [], []\n"
+    "    _static_parts, _hist_parts, _graph_parts, _prior_parts, _summary = [], [], [], [], []\n"
     "    for _, _row in tqdm(list(_eligible.iterrows()), desc='Building features'):\n"
     "        _pid, _t = _row['project_id'], _row['snapshot_date']\n"
     "        _ts = time.time()\n"
@@ -796,25 +1034,36 @@ cells.append(code(
     "            _pid, _t, _data['sonar_issues'], _data['sonar_measures'], _data['changes'])\n"
     "        _hist_df = build_historical_features_for_project(\n"
     "            _pid, _t, _data['commits'], _data['changes'])\n"
+    "        _graph_df = build_graph_features_for_project(_pid, _t, _data['changes'])\n"
+    "        _prior_df = build_priordefect_features_for_project(\n"
+    "            _pid, _t, _data['commits'], _data['changes'], _data['szz'], _data['jira'])\n"
     "        _static_parts.append(_static_df); _hist_parts.append(_hist_df)\n"
+    "        _graph_parts.append(_graph_df); _prior_parts.append(_prior_df)\n"
     "        _summary.append({\n"
     "            'project_id': _pid, 'n_basenames': len(_static_df),\n"
     "            'static_cols': len(_static_df.columns),\n"
     "            'hist_cols': len(_hist_df.columns),\n"
-    "            'mean_n_issues_open': round(float(_static_df['n_issues_open'].mean()), 2)\n"
-    "                if 'n_issues_open' in _static_df.columns else 0.0,\n"
-    "            'mean_total_commits_pre': round(float(_hist_df['total_commits_pre'].mean()), 2)\n"
-    "                if 'total_commits_pre' in _hist_df.columns else 0.0,\n"
+    "            'graph_cols': len(_graph_df.columns),\n"
+    "            'prior_cols': len(_prior_df.columns),\n"
+    "            'mean_cocg_degree': round(float(_graph_df['cocg_degree'].mean()), 2)\n"
+    "                if 'cocg_degree' in _graph_df.columns else 0.0,\n"
+    "            'mean_bugfix_pre': round(float(_prior_df['bugfix_commits_pre'].mean()), 2)\n"
+    "                if 'bugfix_commits_pre' in _prior_df.columns else 0.0,\n"
     "            'elapsed_s': round(time.time() - _ts, 2),\n"
     "        })\n"
     "    _static_all = pd.concat(_static_parts, ignore_index=True)\n"
     "    _hist_all = pd.concat(_hist_parts, ignore_index=True)\n"
+    "    _graph_all = pd.concat(_graph_parts, ignore_index=True)\n"
+    "    _prior_all = pd.concat(_prior_parts, ignore_index=True)\n"
     "    _static_all.to_parquet(PROCESSED_DATA_DIR / 'features_static.parquet', index=False)\n"
     "    _hist_all.to_parquet(PROCESSED_DATA_DIR / 'features_historical.parquet', index=False)\n"
+    "    _graph_all.to_parquet(PROCESSED_DATA_DIR / 'features_graph.parquet', index=False)\n"
+    "    _prior_all.to_parquet(PROCESSED_DATA_DIR / 'features_priordefect.parquet', index=False)\n"
     "    pd.DataFrame(_summary).to_csv(TABLES_DIR / 'feature_summary.csv', index=False)\n"
     "    RUNTIMES['stage_05_features'] = round(time.time() - _t0, 2)\n"
     "    print(f'[Stage 5] Elapsed: {RUNTIMES[\"stage_05_features\"]} s '\n"
-    "          f'(static rows={len(_static_all):,}, hist rows={len(_hist_all):,})')\n"
+    "          f'(static={len(_static_all):,}, hist={len(_hist_all):,}, '\n"
+    "          f'graph={len(_graph_all):,}, prior={len(_prior_all):,})')\n"
 ))
 
 cells.append(code(
@@ -957,18 +1206,28 @@ cells.append(code(
     "from src.models.train import (\n"
     "    fold_results_to_frame, load_variant_matrix, stratified_kfold_cv, summarize,\n"
     ")\n"
+    "from src.analysis.significance import (\n"
+    "    attach_ci_to_summary, bootstrap_confidence_intervals, pairwise_wilcoxon,\n"
+    ")\n"
     "from config import CV_FOLDS, LABEL_VARIANTS\n"
     "\n"
-    "_MODELS_W = ['logistic_regression', 'decision_tree', 'random_forest', 'xgboost', 'lightgbm']\n"
+    "_MODELS_W = ['logistic_regression', 'decision_tree', 'random_forest',\n"
+    "             'xgboost', 'lightgbm', 'svm']\n"
+    "_pred_path = TABLES_DIR / 'within_project_predictions.parquet'\n"
+    "if _pred_path.exists():\n"
+    "    _pred_path.unlink()\n"
     "_t0 = time.time()\n"
     "_all_folds = []\n"
     "for _variant in LABEL_VARIANTS:\n"
-    "    _X, _y, _ = load_variant_matrix(_variant)\n"
+    "    _X, _y, _proj = load_variant_matrix(_variant)\n"
     "    print(f'[Stage 7] {_variant:<11} rows={len(_X):,} feats={_X.shape[1]} '\n"
     "          f'positives={int(_y.sum())} ({100*_y.mean():.2f}%)')\n"
     "    for _m in _MODELS_W:\n"
     "        _t1 = time.time()\n"
-    "        _r = stratified_kfold_cv(_variant, _m, _X, _y, n_splits=CV_FOLDS)\n"
+    "        _r = stratified_kfold_cv(\n"
+    "            _variant, _m, _X, _y, n_splits=CV_FOLDS,\n"
+    "            persist_predictions=True, project_id=_proj,\n"
+    "        )\n"
     "        if not _r:\n"
     "            print(f'   {_m:<20} SKIPPED (not installed)')\n"
     "            continue\n"
@@ -981,7 +1240,25 @@ cells.append(code(
     "\n"
     "_fold_df = pd.concat(_all_folds, ignore_index=True)\n"
     "_fold_df.to_csv(TABLES_DIR / 'within_project_folds.csv', index=False)\n"
-    "summarize(_fold_df).to_csv(TABLES_DIR / 'within_project_summary.csv', index=False)\n"
+    "_summary = summarize(_fold_df)\n"
+    "_summary.to_csv(TABLES_DIR / 'within_project_summary.csv', index=False)\n"
+    "\n"
+    "try:\n"
+    "    _ci = bootstrap_confidence_intervals(_fold_df)\n"
+    "    _ci.to_csv(TABLES_DIR / 'within_project_ci.csv', index=False)\n"
+    "    attach_ci_to_summary(_summary, _ci).to_csv(\n"
+    "        TABLES_DIR / 'within_project_summary_with_ci.csv', index=False)\n"
+    "    _sig_rows = []\n"
+    "    for _metric in ('f1', 'pr_auc'):\n"
+    "        _sig_rows.append(pairwise_wilcoxon(_fold_df,\n"
+    "            pair_within='variant', contrast_col='model',\n"
+    "            metric=_metric, paired_on=('fold',)))\n"
+    "    pd.concat(_sig_rows, ignore_index=True).to_csv(\n"
+    "        TABLES_DIR / 'pairwise_significance.csv', index=False)\n"
+    "    print('[Stage 7] Significance: within_project_ci.csv + pairwise_significance.csv')\n"
+    "except Exception as _exc:\n"
+    "    print(f'[Stage 7] Significance step skipped: {_exc}')\n"
+    "\n"
     "RUNTIMES['stage_07_within'] = round(time.time() - _t0, 2)\n"
     "print(f'[Stage 7] Elapsed: {RUNTIMES[\"stage_07_within\"]} s')\n"
 ))
@@ -994,6 +1271,295 @@ cells.append(code(
     "_pretty[_mean_cols] = _pretty[_mean_cols].round(3)\n"
     "display(Markdown('**Within-project 10-fold CV (mean of folds):**'))\n"
     "display(_pretty)\n"
+    "\n"
+    "_ci_path = TABLES_DIR / 'within_project_ci.csv'\n"
+    "if _ci_path.exists():\n"
+    "    _ci = pd.read_csv(_ci_path)\n"
+    "    _ci_cols = ['variant','model','metric','mean','ci_low','ci_high']\n"
+    "    _ci_cols = [c for c in _ci_cols if c in _ci.columns]\n"
+    "    display(Markdown('**Bootstrap 95% confidence intervals (within-project):**'))\n"
+    "    display(_ci[_ci_cols].head(30))\n"
+    "_sig_path = TABLES_DIR / 'pairwise_significance.csv'\n"
+    "if _sig_path.exists():\n"
+    "    _sig = pd.read_csv(_sig_path)\n"
+    "    display(Markdown('**Pairwise Wilcoxon (Bonferroni-corrected, p < 0.05 highlighted):**'))\n"
+    "    display(_sig.head(40))\n"
+))
+
+
+# ===== Stage 7b - Hyperparameter tuning ====================================
+cells.append(md(
+    "## Stage 7b - Hyperparameter tuning (Optuna)\n"
+    "\n"
+    "Run Optuna-driven hyperparameter search per (variant, model) using PR-AUC on inner stratified folds. The best parameters are then re-evaluated on the full 10-fold within-project CV and persisted alongside the baseline summary.\n"
+    "\n"
+    "Outputs: `results/tables/tuned_params.json`, `results/tables/within_project_summary_tuned.csv`.\n"
+))
+
+cells.append(code(
+    "from src.models.train import fold_results_to_frame, load_variant_matrix, stratified_kfold_cv, summarize\n"
+    "from src.models.tuning import tune_model\n"
+    "from config import LABEL_VARIANTS, TUNING_TRIALS, CV_FOLDS\n"
+    "import json as _json\n"
+    "\n"
+    "_MODELS_TUNE = ['logistic_regression', 'decision_tree', 'random_forest',\n"
+    "                'xgboost', 'lightgbm']\n"
+    "_t0 = time.time()\n"
+    "_tuned_records = []\n"
+    "_tuned_folds = []\n"
+    "for _variant in LABEL_VARIANTS:\n"
+    "    _X, _y, _ = load_variant_matrix(_variant)\n"
+    "    print(f'[Stage 7b] {_variant} (n_trials={TUNING_TRIALS})')\n"
+    "    for _m in _MODELS_TUNE:\n"
+    "        _t1 = time.time()\n"
+    "        try:\n"
+    "            _rec = tune_model(_variant, _m, _X, _y, n_trials=TUNING_TRIALS)\n"
+    "        except Exception as _exc:\n"
+    "            print(f'   {_m:<20} tuning failed: {_exc}')\n"
+    "            continue\n"
+    "        _tuned_records.append(_rec)\n"
+    "        print(f'   {_m:<20} best_PR_AUC={_rec[\"best_pr_auc\"]:.3f} '\n"
+    "              f'trials={_rec[\"n_trials_completed\"]}/{_rec[\"n_trials_requested\"]} '\n"
+    "              f'({_rec[\"elapsed_s\"]}s)')\n"
+    "        _r = stratified_kfold_cv(_variant, _m, _X, _y, n_splits=CV_FOLDS,\n"
+    "                                 params=_rec['best_params'])\n"
+    "        if _r:\n"
+    "            _df = fold_results_to_frame(_r)\n"
+    "            _means = _df[['f1','pr_auc','mcc','ce_at_20']].mean()\n"
+    "            print(f'   {_m:<20} -> outer F1={_means[\"f1\"]:.3f} PR={_means[\"pr_auc\"]:.3f} '\n"
+    "                  f'CE@20={_means[\"ce_at_20\"]:.3f} ({time.time()-_t1:.1f}s)')\n"
+    "            _tuned_folds.append(_df)\n"
+    "\n"
+    "(TABLES_DIR / 'tuned_params.json').write_text(\n"
+    "    _json.dumps(_tuned_records, indent=2, default=str), encoding='utf-8')\n"
+    "if _tuned_folds:\n"
+    "    _tdf = pd.concat(_tuned_folds, ignore_index=True)\n"
+    "    _tdf.to_csv(TABLES_DIR / 'within_project_folds_tuned.csv', index=False)\n"
+    "    summarize(_tdf).to_csv(TABLES_DIR / 'within_project_summary_tuned.csv', index=False)\n"
+    "RUNTIMES['stage_07b_tune'] = round(time.time() - _t0, 2)\n"
+    "print(f'[Stage 7b] Elapsed: {RUNTIMES[\"stage_07b_tune\"]} s')\n"
+))
+
+cells.append(code(
+    "_tp = TABLES_DIR / 'within_project_summary_tuned.csv'\n"
+    "if _tp.exists():\n"
+    "    _t = pd.read_csv(_tp)\n"
+    "    _mean_cols = [c for c in _t.columns if c.endswith('_mean')]\n"
+    "    _disp = _t[['variant','model'] + _mean_cols].copy()\n"
+    "    _disp[_mean_cols] = _disp[_mean_cols].round(3)\n"
+    "    display(Markdown('**Tuned within-project 10-fold CV:**'))\n"
+    "    display(_disp)\n"
+    "else:\n"
+    "    print('No tuned_summary file produced.')\n"
+))
+
+
+# ===== Stage 7c - Probability calibration ===================================
+cells.append(md(
+    "## Stage 7c - Probability calibration sweep\n"
+    "\n"
+    "Compare uncalibrated probabilities against Platt scaling and isotonic regression for each (variant, model) using stratified 10-fold CV. Calibration quality is reported via Brier score, NLL and Expected Calibration Error (ECE).\n"
+    "\n"
+    "Outputs: `results/tables/calibration_folds.csv`, `calibration_summary.csv`, `calibration_predictions.parquet`.\n"
+))
+
+cells.append(code(
+    "from src.models.train import (\n"
+    "    calibrated_kfold_cv, fold_results_to_frame, load_variant_matrix,\n"
+    "    stratified_kfold_cv, summarize,\n"
+    ")\n"
+    "from config import LABEL_VARIANTS, CV_FOLDS, CALIBRATION_METHODS\n"
+    "\n"
+    "_MODELS_CAL = ['logistic_regression', 'random_forest', 'xgboost', 'lightgbm']\n"
+    "_t0 = time.time()\n"
+    "_cal_folds = []\n"
+    "_cal_long = []\n"
+    "for _variant in LABEL_VARIANTS:\n"
+    "    _X, _y, _ = load_variant_matrix(_variant)\n"
+    "    print(f'[Stage 7c] variant={_variant} rows={len(_X):,} feats={_X.shape[1]}')\n"
+    "    for _m in _MODELS_CAL:\n"
+    "        _t1 = time.time()\n"
+    "        _base = stratified_kfold_cv(_variant, _m, _X, _y, n_splits=CV_FOLDS)\n"
+    "        if _base:\n"
+    "            _bdf = fold_results_to_frame(_base)\n"
+    "            _bdf['method'] = 'uncalibrated'\n"
+    "            _bdf['brier'] = float('nan')\n"
+    "            _bdf['nll'] = float('nan')\n"
+    "            _bdf['ece'] = float('nan')\n"
+    "            _cal_folds.append(_bdf)\n"
+    "        for _method in CALIBRATION_METHODS:\n"
+    "            _t2 = time.time()\n"
+    "            _r, _long = calibrated_kfold_cv(_variant, _m, _X, _y,\n"
+    "                                              n_splits=CV_FOLDS, method=_method)\n"
+    "            if not _r:\n"
+    "                continue\n"
+    "            _df = fold_results_to_frame(_r)\n"
+    "            _df['method'] = _method\n"
+    "            _means = _df[['brier','nll','ece','f1']].mean()\n"
+    "            print(f'   {_m:<18} {_method:<9} brier={_means[\"brier\"]:.4f} '\n"
+    "                  f'ECE={_means[\"ece\"]:.4f} F1={_means[\"f1\"]:.3f} '\n"
+    "                  f'({time.time()-_t2:.1f}s)')\n"
+    "            _cal_folds.append(_df)\n"
+    "            _cal_long.append(_long)\n"
+    "\n"
+    "if _cal_folds:\n"
+    "    _cdf = pd.concat(_cal_folds, ignore_index=True)\n"
+    "    _cdf.to_csv(TABLES_DIR / 'calibration_folds.csv', index=False)\n"
+    "    summarize(_cdf, group_cols=('variant','model','method')).to_csv(\n"
+    "        TABLES_DIR / 'calibration_summary.csv', index=False)\n"
+    "if _cal_long:\n"
+    "    pd.concat(_cal_long, ignore_index=True).to_parquet(\n"
+    "        TABLES_DIR / 'calibration_predictions.parquet', index=False)\n"
+    "RUNTIMES['stage_07c_calibrate'] = round(time.time() - _t0, 2)\n"
+    "print(f'[Stage 7c] Elapsed: {RUNTIMES[\"stage_07c_calibrate\"]} s')\n"
+))
+
+cells.append(code(
+    "_cp = TABLES_DIR / 'calibration_summary.csv'\n"
+    "if _cp.exists():\n"
+    "    _c = pd.read_csv(_cp)\n"
+    "    _show = ['variant','model','method','brier_mean','nll_mean','ece_mean','f1_mean']\n"
+    "    _show = [c for c in _show if c in _c.columns]\n"
+    "    _disp = _c[_show].copy()\n"
+    "    _num = [c for c in _disp.columns if _disp[c].dtype.kind == 'f']\n"
+    "    _disp[_num] = _disp[_num].round(4)\n"
+    "    display(Markdown('**Calibration summary (Brier / NLL / ECE):**'))\n"
+    "    display(_disp)\n"
+    "else:\n"
+    "    print('No calibration summary produced.')\n"
+))
+
+
+# ===== Stage 7d - SMOTE vs class_weight =====================================
+cells.append(md(
+    "## Stage 7d - Resampling sweep (SMOTE vs class_weight)\n"
+    "\n"
+    "Compare SMOTE oversampling against the default `class_weight='balanced'` strategy on the within-project 10-fold CV. Deltas in F1, PR-AUC and MCC are emitted to highlight the better imbalance-handling choice per variant.\n"
+    "\n"
+    "Outputs: `results/tables/within_project_folds_smote.csv`, `within_project_summary_smote.csv`, `resampling_comparison.csv`.\n"
+))
+
+cells.append(code(
+    "from src.models.train import fold_results_to_frame, load_variant_matrix, stratified_kfold_cv, summarize\n"
+    "from config import LABEL_VARIANTS, CV_FOLDS\n"
+    "\n"
+    "_MODELS_SM = ['logistic_regression', 'decision_tree', 'random_forest',\n"
+    "              'xgboost', 'lightgbm', 'svm']\n"
+    "_KEY_METRICS = ('f1','pr_auc','mcc','ce_at_20')\n"
+    "_t0 = time.time()\n"
+    "_sm_folds = []\n"
+    "for _variant in LABEL_VARIANTS:\n"
+    "    _X, _y, _ = load_variant_matrix(_variant)\n"
+    "    for _m in _MODELS_SM:\n"
+    "        _t1 = time.time()\n"
+    "        _r = stratified_kfold_cv(_variant, _m, _X, _y, n_splits=CV_FOLDS, use_smote=True)\n"
+    "        if not _r:\n"
+    "            continue\n"
+    "        _df = fold_results_to_frame(_r)\n"
+    "        _df['resampler'] = 'smote'\n"
+    "        _means = _df[list(_KEY_METRICS)].mean()\n"
+    "        print(f'[Stage 7d] {_variant} {_m:<18} smote F1={_means[\"f1\"]:.3f} '\n"
+    "              f'PR={_means[\"pr_auc\"]:.3f} CE@20={_means[\"ce_at_20\"]:.3f} '\n"
+    "              f'({time.time()-_t1:.1f}s)')\n"
+    "        _sm_folds.append(_df)\n"
+    "\n"
+    "if _sm_folds:\n"
+    "    _sdf = pd.concat(_sm_folds, ignore_index=True)\n"
+    "    _sdf.to_csv(TABLES_DIR / 'within_project_folds_smote.csv', index=False)\n"
+    "    _smote_summary = summarize(_sdf)\n"
+    "    _smote_summary.to_csv(TABLES_DIR / 'within_project_summary_smote.csv', index=False)\n"
+    "    _cw_path = TABLES_DIR / 'within_project_summary.csv'\n"
+    "    if _cw_path.exists():\n"
+    "        _cw_summary = pd.read_csv(_cw_path)\n"
+    "        _cw = _cw_summary.rename(columns={f'{m}_mean': f'{m}_cw' for m in _KEY_METRICS})\n"
+    "        _cw = _cw[['variant','model'] + [f'{m}_cw' for m in _KEY_METRICS]]\n"
+    "        _sm = _smote_summary.rename(columns={f'{m}_mean': f'{m}_smote' for m in _KEY_METRICS})\n"
+    "        _sm = _sm[['variant','model'] + [f'{m}_smote' for m in _KEY_METRICS]]\n"
+    "        _comp = _cw.merge(_sm, on=['variant','model'], how='outer')\n"
+    "        for _m in _KEY_METRICS:\n"
+    "            _comp[f'{_m}_delta'] = (_comp[f'{_m}_smote'] - _comp[f'{_m}_cw']).round(3)\n"
+    "            _comp[f'{_m}_cw'] = _comp[f'{_m}_cw'].round(3)\n"
+    "            _comp[f'{_m}_smote'] = _comp[f'{_m}_smote'].round(3)\n"
+    "        _comp.to_csv(TABLES_DIR / 'resampling_comparison.csv', index=False)\n"
+    "RUNTIMES['stage_07d_resample'] = round(time.time() - _t0, 2)\n"
+    "print(f'[Stage 7d] Elapsed: {RUNTIMES[\"stage_07d_resample\"]} s')\n"
+))
+
+cells.append(code(
+    "_rp = TABLES_DIR / 'resampling_comparison.csv'\n"
+    "if _rp.exists():\n"
+    "    _r = pd.read_csv(_rp)\n"
+    "    display(Markdown('**Resampling comparison (SMOTE - class_weight):**'))\n"
+    "    display(_r)\n"
+    "else:\n"
+    "    print('No resampling comparison produced.')\n"
+))
+
+
+# ===== Stage 7e - Temporal within-project T1 -> T2 ==========================
+cells.append(md(
+    "## Stage 7e - Temporal within-project split (T1 -> T2)\n"
+    "\n"
+    "For each project, build features and labels at an early percentile snapshot T1 and re-evaluate at a later T2. Training on T1 and testing on T2 quantifies how well the model generalizes to *future* code in the same project - a stricter check than random-fold CV.\n"
+    "\n"
+    "Outputs: `results/tables/temporal_per_project.csv`, `temporal_summary.csv`.\n"
+))
+
+cells.append(code(
+    "from src.models.temporal import load_clean_for_temporal, temporal_split_results\n"
+    "from config import (OBSERVATION_WINDOW_MONTHS,\n"
+    "                    TEMPORAL_T1_PERCENTILE, TEMPORAL_T2_PERCENTILE)\n"
+    "\n"
+    "_MODELS_TEMP = ['logistic_regression', 'random_forest', 'xgboost', 'lightgbm']\n"
+    "_METRIC_COLS_T = ['precision','recall','f1','roc_auc','pr_auc','mcc','ce_at_20']\n"
+    "_t0 = time.time()\n"
+    "print(f'[Stage 7e] T1={TEMPORAL_T1_PERCENTILE} T2={TEMPORAL_T2_PERCENTILE} '\n"
+    "      f'window={OBSERVATION_WINDOW_MONTHS}')\n"
+    "_data = load_clean_for_temporal()\n"
+    "_projects_temp = sorted(_data['commits']['PROJECT_ID'].dropna().unique().tolist())\n"
+    "print(f'[Stage 7e] Projects in data: {len(_projects_temp)}')\n"
+    "_temp_rows = []\n"
+    "for _m in _MODELS_TEMP:\n"
+    "    _t1 = time.time()\n"
+    "    try:\n"
+    "        _df = temporal_split_results(\n"
+    "            _m, _data, _projects_temp,\n"
+    "            p1=TEMPORAL_T1_PERCENTILE, p2=TEMPORAL_T2_PERCENTILE,\n"
+    "            window_months=OBSERVATION_WINDOW_MONTHS,\n"
+    "        )\n"
+    "    except Exception as _exc:\n"
+    "        print(f'   {_m:<18} failed: {_exc}')\n"
+    "        continue\n"
+    "    if _df is None or _df.empty:\n"
+    "        print(f'   {_m:<18} no eligible projects')\n"
+    "        continue\n"
+    "    _means = _df[_METRIC_COLS_T].mean()\n"
+    "    print(f'   {_m:<18} projs={len(_df):>2} F1={_means[\"f1\"]:.3f} '\n"
+    "          f'PR={_means[\"pr_auc\"]:.3f} CE@20={_means[\"ce_at_20\"]:.3f} '\n"
+    "          f'({time.time()-_t1:.1f}s)')\n"
+    "    _temp_rows.append(_df)\n"
+    "\n"
+    "if _temp_rows:\n"
+    "    _tdf = pd.concat(_temp_rows, ignore_index=True)\n"
+    "    _tdf.to_csv(TABLES_DIR / 'temporal_per_project.csv', index=False)\n"
+    "    _summ = (_tdf.groupby('model')[_METRIC_COLS_T]\n"
+    "                  .agg(['mean','std','count'])\n"
+    "                  .reset_index())\n"
+    "    _summ.columns = ['_'.join(c).rstrip('_') if isinstance(c, tuple) else c\n"
+    "                      for c in _summ.columns]\n"
+    "    _summ.to_csv(TABLES_DIR / 'temporal_summary.csv', index=False)\n"
+    "RUNTIMES['stage_07e_temporal'] = round(time.time() - _t0, 2)\n"
+    "print(f'[Stage 7e] Elapsed: {RUNTIMES[\"stage_07e_temporal\"]} s')\n"
+))
+
+cells.append(code(
+    "_tp = TABLES_DIR / 'temporal_summary.csv'\n"
+    "if _tp.exists():\n"
+    "    _t = pd.read_csv(_tp)\n"
+    "    display(Markdown('**Temporal T1 -> T2 within-project summary:**'))\n"
+    "    display(_t)\n"
+    "else:\n"
+    "    print('No temporal summary produced (skipped if any stage 7e step failed).')\n"
 ))
 
 
@@ -1013,15 +1579,22 @@ cells.append(code(
     "from src.models.cross_project import (\n"
     "    lopo_cv, lopo_results_to_frame, lopo_summary,\n"
     ")\n"
+    "from src.analysis.significance import (\n"
+    "    attach_ci_to_summary, bootstrap_confidence_intervals, pairwise_wilcoxon,\n"
+    ")\n"
     "_METRIC_COLS = ['precision','recall','f1','roc_auc','pr_auc','mcc','ce_at_20']\n"
+    "# SVM is intentionally excluded from LOPO due to O(N^2) cost on cross-project folds.\n"
     "_MODELS_LOPO = ['logistic_regression', 'decision_tree', 'random_forest', 'xgboost', 'lightgbm']\n"
+    "_lopo_pred_path = TABLES_DIR / 'lopo_predictions.parquet'\n"
+    "if _lopo_pred_path.exists():\n"
+    "    _lopo_pred_path.unlink()\n"
     "_t0 = time.time()\n"
     "_all_folds = []\n"
     "for _variant in LABEL_VARIANTS:\n"
     "    print(f'[Stage 8] variant={_variant}')\n"
     "    for _m in _MODELS_LOPO:\n"
     "        _t1 = time.time()\n"
-    "        _r = lopo_cv(_variant, _m)\n"
+    "        _r = lopo_cv(_variant, _m, persist_predictions=True)\n"
     "        if not _r:\n"
     "            print(f'   {_m:<20} SKIPPED'); continue\n"
     "        _df = lopo_results_to_frame(_r)\n"
@@ -1052,6 +1625,22 @@ cells.append(code(
     "        _gap[f'{_m}_lopo'] = _gap[f'{_m}_lopo'].round(3)\n"
     "    _gap.to_csv(TABLES_DIR / 'lopo_vs_within.csv', index=False)\n"
     "\n"
+    "try:\n"
+    "    _ci = bootstrap_confidence_intervals(_fold_df)\n"
+    "    _ci.to_csv(TABLES_DIR / 'lopo_ci.csv', index=False)\n"
+    "    attach_ci_to_summary(_summary, _ci).to_csv(\n"
+    "        TABLES_DIR / 'lopo_summary_with_ci.csv', index=False)\n"
+    "    _sig_rows = []\n"
+    "    for _metric in ('f1', 'pr_auc'):\n"
+    "        _sig_rows.append(pairwise_wilcoxon(_fold_df,\n"
+    "            pair_within='variant', contrast_col='model',\n"
+    "            metric=_metric, paired_on=('held_out_project',)))\n"
+    "    pd.concat(_sig_rows, ignore_index=True).to_csv(\n"
+    "        TABLES_DIR / 'lopo_pairwise_significance.csv', index=False)\n"
+    "    print('[Stage 8] Significance: lopo_ci.csv + lopo_pairwise_significance.csv')\n"
+    "except Exception as _exc:\n"
+    "    print(f'[Stage 8] Significance step skipped: {_exc}')\n"
+    "\n"
     "RUNTIMES['stage_08_lopo'] = round(time.time() - _t0, 2)\n"
     "print(f'[Stage 8] Elapsed: {RUNTIMES[\"stage_08_lopo\"]} s')\n"
 ))
@@ -1074,6 +1663,47 @@ cells.append(code(
     "    _gap_cols = [c for c in _gap_cols if c in _gap.columns]\n"
     "    display(Markdown('**Generalization gap (within - LOPO):**'))\n"
     "    display(_gap[_gap_cols])\n"
+))
+
+
+# ===== 12b. Collision analysis (MOD-Q1) ======================================
+cells.append(md(
+    '<a id="collision-analysis"></a>\n'
+    "## Collision analysis - basename collision vs LOPO (thesis Section 5.5)\n"
+    "\n"
+    "Post-hoc grouping only: merges `path_overlap_report.csv` (Stage 3) with "
+    "`lopo_folds.csv` (Stage 8) for LightGBM on the consequence variant. Writes "
+    "`collision_analysis.csv`, `collision_analysis_summary.csv`, and prints "
+    "thesis-ready paragraphs.\n"
+    "\n"
+    "**Skipped** if Stage 8 did not run (for example the demo notebook short-circuits LOPO) "
+    "or if `path_overlap_report.csv` is missing.\n"
+))
+
+cells.append(writefile_cell("/content/tools/collision_analysis.py", read("tools/collision_analysis.py")))
+
+cells.append(code(
+    "import os\n"
+    "\n"
+    "_lp = TABLES_DIR / 'lopo_folds.csv'\n"
+    "_po = TABLES_DIR / 'path_overlap_report.csv'\n"
+    "_script = CONTENT / 'tools' / 'collision_analysis.py'\n"
+    "if not _lp.exists():\n"
+    "    print('[collision] skipped: missing lopo_folds.csv (run Stage 8; full notebook only).')\n"
+    "elif not _po.exists():\n"
+    "    print('[collision] skipped: missing path_overlap_report.csv (run Stage 3).')\n"
+    "elif _script.exists():\n"
+    "    import subprocess\n"
+    "    import sys\n"
+    "\n"
+    "    _r = subprocess.run(\n"
+    "        [sys.executable, str(_script)], cwd=str(CONTENT), env=os.environ.copy()\n"
+    "    )\n"
+    "    if _r.returncode != 0:\n"
+    "        print(f'[collision] subprocess exited with code {_r.returncode}')\n"
+    "else:\n"
+    "    # Standalone notebook: ``tools/collision_analysis.py`` was inlined without ``__main__``.\n"
+    "    main()\n"
 ))
 
 
@@ -1172,6 +1802,21 @@ cells.append(code(
     "fig.fig_sensitivity_heatmap();         print('   - fig_sensitivity_heatmap')\n"
     "fig.fig_feature_ablation();            print('   - fig_feature_ablation')\n"
     "fig.fig_lopo_per_project();            print('   - fig_lopo_per_project')\n"
+    "\n"
+    "_within_pred = TABLES_DIR / 'within_project_predictions.parquet'\n"
+    "if _within_pred.exists() and hasattr(fig, 'figure_confusion_matrices'):\n"
+    "    try:\n"
+    "        _per_proj = fig.figure_confusion_matrices(pd.read_parquet(_within_pred))\n"
+    "        print(f'   - figure_confusion_matrices ({len(_per_proj):,} per-project rows)')\n"
+    "    except Exception as _exc:\n"
+    "        print(f'   confusion matrices skipped: {_exc}')\n"
+    "_cal_pred = TABLES_DIR / 'calibration_predictions.parquet'\n"
+    "if _cal_pred.exists() and hasattr(fig, 'figure_calibration_diagrams'):\n"
+    "    try:\n"
+    "        fig.figure_calibration_diagrams(pd.read_parquet(_cal_pred))\n"
+    "        print('   - figure_calibration_diagrams')\n"
+    "    except Exception as _exc:\n"
+    "        print(f'   calibration diagrams skipped: {_exc}')\n"
     "\n"
     "print('[Stage 10.3] Render docs/06_results.md + docs/07_discussion.md')\n"
     "_results_path = render_results()\n"
@@ -1332,9 +1977,171 @@ notebook = {
     "nbformat_minor": 5,
 }
 
-OUT.parent.mkdir(parents=True, exist_ok=True)
-OUT.write_text(json.dumps(notebook, indent=1, ensure_ascii=False), encoding="utf-8")
-print(f"Wrote {OUT} ({OUT.stat().st_size / 1024:.1f} KiB, {len(cells)} cells)")
+# ---------------------------------------------------------------------------
+# Demo variant: a 5-project subset that runs stages 1-7 in 5-10 minutes on a
+# free Colab T4 runtime. Stages 8 (LOPO) and 9 (sensitivity grid + ablation)
+# are short-circuited with banner cells - they need many projects to be
+# meaningful, and the demo notebook is intended as an "instant replication"
+# artefact for examiners and reviewers, not as a substitute for the full
+# overnight run.
+# ---------------------------------------------------------------------------
+_DEMO_PROJECT_FILTER_BANNER = (
+    "## DEMO MODE - 5-project subset\n"
+    "\n"
+    "This notebook is the *demo* variant of the TD pipeline. It runs stages 1-7 "
+    "on the following projects only:\n"
+    "\n"
+    + "".join(f"- `{p}`\n" for p in DEMO_PROJECTS)
+    + "\n"
+    "Stages 8 (Leave-One-Project-Out) and 9 (sensitivity grid + ablation) are "
+    "short-circuited because they require many projects to be statistically "
+    "meaningful. Stage 10 still emits a smaller-scope SHAP analysis and a "
+    "render of `docs/06_results.md`.\n"
+    "\n"
+    "Expected wall-clock on a free Colab T4: 5-10 minutes. Use the *full* "
+    "notebook (`td_pipeline_colab.ipynb`) for the 22-project, stages-1-10 "
+    "thesis-grade reproduction."
+)
+
+_DEMO_PROJECT_FILTER_CODE = (
+    "# Demo-mode project filter - applied to project_snapshots.parquet so every\n"
+    "# downstream stage sees only the 5 demo projects. Also sets TD_PROJECTS\n"
+    "# so ``src.data.load_data.list_projects`` returns the same subset when used.\n"
+    "import os\n"
+    "from config import PROCESSED_DATA_DIR as _PD\n"
+    "DEMO_PROJECTS = " + repr(DEMO_PROJECTS) + "\n"
+    "os.environ['TD_PROJECTS'] = ','.join(DEMO_PROJECTS)\n"
+    "_snap_path = _PD / 'project_snapshots.parquet'\n"
+    "if _snap_path.exists():\n"
+    "    _df = pd.read_parquet(_snap_path)\n"
+    "    _df['eligible'] = _df['eligible'] & _df['project_id'].isin(DEMO_PROJECTS)\n"
+    "    _df.to_parquet(_snap_path, index=False)\n"
+    "    print(f'[demo] eligible projects after filter: '\n"
+    "          f\"{_df.loc[_df['eligible'], 'project_id'].tolist()}\")\n"
+    "else:\n"
+    "    print('[demo] project_snapshots.parquet not yet built; filter will apply on next run.')\n"
+)
+
+_DEMO_STAGE8_BANNER = (
+    "## Stage 8 - SKIPPED in demo mode\n"
+    "\n"
+    "Leave-One-Project-Out cross-project validation needs 10+ projects to "
+    "produce meaningful averages. The demo subset of 5 projects would yield "
+    "high-variance LOPO numbers that are not informative.\n"
+    "\n"
+    "Run the *full* notebook (`td_pipeline_colab.ipynb`) for the 22-project "
+    "LOPO results reported in the thesis."
+)
+
+_DEMO_STAGE9_BANNER = (
+    "## Stage 9 - SKIPPED in demo mode\n"
+    "\n"
+    "The 3 x 3 sensitivity grid retrains 9 LightGBM models on relabelled "
+    "datasets, and feature-group ablation retrains 33 models. Both are "
+    "expensive and only meaningful at full scale. Run the *full* notebook "
+    "for both."
+)
+
+
+def _build_demo_notebook(orig_cells: list[dict]) -> list[dict]:
+    """Take a deep copy of the full-notebook cells and patch them for demo mode.
+
+    Edits in order:
+    1. Title and overview markdown -> point at the 5-project subset.
+    2. Right after Stage 2 (snapshot selection) inject a project-filter cell
+       so Stages 3-7 only see the 5 demo projects.
+    3. Replace Stage 8 + Stage 9 cells with banner-only "skipped" markdown.
+    4. Reduce Optuna TUNING_TRIALS to 5 in any %%writefile cell.
+    """
+    new_cells = copy.deepcopy(orig_cells)
+
+    # 1. Title and scope updates
+    for cell in new_cells:
+        if cell["cell_type"] != "markdown":
+            continue
+        text = "".join(cell["source"])
+        if "TD Prediction Pipeline - Replication Notebook" in text and "demo" not in text.lower():
+            text = text.replace(
+                "# TD Prediction Pipeline - Replication Notebook\n",
+                "# TD Prediction Pipeline - Replication Notebook (demo, 5 projects)\n",
+            )
+            text = text.replace(
+                "Reproduces Stages 1-10",
+                "Reproduces Stages 1-7 on a 5-project subset",
+            )
+            cell["source"] = _split_keep_lines(text)
+            break
+
+    # 1b. TOC — collision cells ship only with Stage 8; demo replaces Stage 8 entirely.
+    for cell in new_cells:
+        if cell["cell_type"] != "markdown":
+            continue
+        text = "".join(cell["source"])
+        if "## Table of contents" not in text:
+            continue
+        text = text.replace(
+            "12. [Collision analysis (construct validity)](#collision-analysis)\n",
+            "",
+        )
+        text = text.replace("13. [Stage 9", "12. [Stage 9")
+        text = text.replace("14. [Stage 10", "13. [Stage 10")
+        text = text.replace("15. [Finalisation", "14. [Finalisation")
+        cell["source"] = _split_keep_lines(text)
+        break
+
+    # 2. Insert a project-filter markdown + code cell after Stage 2's inspection
+    #    cell (the cell that displays the eligible-snapshots dataframe).
+    insert_after = None
+    for i, cell in enumerate(new_cells):
+        if cell["cell_type"] != "code":
+            continue
+        src = "".join(cell["source"])
+        if "_eligible[_disp_cols]" in src and "Eligibility:" in src:
+            insert_after = i
+            break
+    if insert_after is None:
+        raise RuntimeError("could not locate Stage 2 inspection cell to insert demo filter after")
+    demo_md = md(_DEMO_PROJECT_FILTER_BANNER)
+    demo_code = code(_DEMO_PROJECT_FILTER_CODE)
+    new_cells = new_cells[: insert_after + 1] + [demo_md, demo_code] + new_cells[insert_after + 1 :]
+
+    # 3. Stage 8 + Stage 9 short-circuit. Find each section's leading markdown,
+    #    replace its content with the banner, and turn the immediately following
+    #    code cell(s) (until the next "## Stage" or "<a id=\"stage-...\">") into
+    #    a single no-op print.
+    def _short_circuit(stage_id: str, banner: str) -> None:
+        nonlocal new_cells
+        start = end = None
+        for i, c in enumerate(new_cells):
+            text = "".join(c["source"])
+            if c["cell_type"] == "markdown" and f'id="{stage_id}"' in text:
+                start = i; continue
+            if start is not None and c["cell_type"] == "markdown" and (
+                'id="stage-' in text or 'id="finalisation"' in text
+            ) and i > start:
+                end = i; break
+        if start is None:
+            print(f"[demo] warn: could not find {stage_id} block; left unchanged")
+            return
+        if end is None:
+            end = len(new_cells)
+        replacement = [md(f'<a id="{stage_id}"></a>\n' + banner),
+                       code(f'print(\"[demo] {stage_id} short-circuited; see full notebook.\")\n')]
+        new_cells = new_cells[:start] + replacement + new_cells[end:]
+
+    _short_circuit("stage-8", _DEMO_STAGE8_BANNER)
+    _short_circuit("stage-9", _DEMO_STAGE9_BANNER)
+
+    # 4. Reduce TUNING_TRIALS to 5 in any %%writefile config cell.
+    for cell in new_cells:
+        if cell["cell_type"] != "code":
+            continue
+        src = "".join(cell["source"])
+        if "%%writefile" in src and "TUNING_TRIALS" in src:
+            src = src.replace("TUNING_TRIALS = 30", "TUNING_TRIALS = 5  # demo mode\n")
+            cell["source"] = _split_keep_lines(src)
+
+    return new_cells
 
 
 # ---------------------------------------------------------------------------
@@ -1342,11 +2149,6 @@ print(f"Wrote {OUT} ({OUT.stat().st_size / 1024:.1f} KiB, {len(cells)} cells)")
 # the notebook can be edited and re-run in a demo workflow without writing any
 # files to disk. The 10 pipeline stages and their artefacts are unchanged.
 # ---------------------------------------------------------------------------
-import copy
-import re
-
-OUT_STANDALONE = REPO / "notebooks" / "td_pipeline_colab_standalone.ipynb"
-
 _INTERNAL_IMPORT = re.compile(r"^(\s*)from\s+([\w.]+)\s+import\b")
 
 
@@ -1391,6 +2193,22 @@ def _rewrite_file_dunder(text: str) -> str:
     return text
 
 
+def _strip_if_main_guard_from_notebook_tool(body: str) -> str:
+    """Remove trailing ``if __name__ == ...: main()`` so standalone can call ``main()`` later."""
+    lines = body.rstrip().split("\n")
+    while lines and lines[-1].strip() == "":
+        lines.pop()
+    while len(lines) >= 2:
+        prev_norm = lines[-2].strip().replace("'", '"')
+        if prev_norm == 'if __name__ == "__main__":' and lines[-1].strip() == "main()":
+            lines = lines[:-2]
+            while lines and lines[-1].strip() == "":
+                lines.pop()
+            continue
+        break
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def _convert_for_standalone(orig_cells: list[dict]) -> list[dict]:
     new_cells: list[dict] = []
     for cell in copy.deepcopy(orig_cells):
@@ -1399,9 +2217,13 @@ def _convert_for_standalone(orig_cells: list[dict]) -> list[dict]:
             continue
         src = "".join(cell["source"])
         if src.startswith("%%writefile"):
+            first_line = src.split("\n", 1)[0]
             body = src.split("\n", 1)[1] if "\n" in src else ""
-            body = _rewrite_file_dunder(body)
+            if "/tools/collision_analysis.py" not in first_line:
+                body = _rewrite_file_dunder(body)
             body = _strip_internal_imports(body)
+            if "/tools/collision_analysis.py" in first_line:
+                body = _strip_if_main_guard_from_notebook_tool(body)
             cell["source"] = _split_keep_lines(body)
             new_cells.append(cell)
             continue
@@ -1464,20 +2286,55 @@ def _patch_standalone_markdown(orig_cells: list[dict]) -> list[dict]:
     return orig_cells
 
 
-standalone_cells = _patch_standalone_markdown(_convert_for_standalone(cells))
+def _emit_notebooks(mode: str) -> None:
+    """Write notebook JSON files according to ``mode`` (full / demo / standalone / all)."""
+    modes = {"full", "demo", "standalone"} if mode == "all" else {mode}
+    OUT_FULL.parent.mkdir(parents=True, exist_ok=True)
 
-standalone_notebook = {
-    "cells": standalone_cells,
-    "metadata": notebook["metadata"],
-    "nbformat": 4,
-    "nbformat_minor": 5,
-}
+    if "full" in modes:
+        OUT_FULL.write_text(json.dumps(notebook, indent=1, ensure_ascii=False), encoding="utf-8")
+        sz = OUT_FULL.stat().st_size / 1024
+        print(f"Wrote {OUT_FULL} ({sz:.1f} KiB, {len(cells)} cells)")
 
-OUT_STANDALONE.write_text(
-    json.dumps(standalone_notebook, indent=1, ensure_ascii=False),
-    encoding="utf-8",
-)
-print(
-    f"Wrote {OUT_STANDALONE} "
-    f"({OUT_STANDALONE.stat().st_size / 1024:.1f} KiB, {len(standalone_cells)} cells)"
-)
+    if "demo" in modes:
+        demo_cells_local = _build_demo_notebook(cells)
+        demo_nb = {
+            "cells": demo_cells_local,
+            "metadata": notebook["metadata"],
+            "nbformat": 4,
+            "nbformat_minor": 5,
+        }
+        OUT_DEMO.write_text(json.dumps(demo_nb, indent=1, ensure_ascii=False), encoding="utf-8")
+        sz_d = OUT_DEMO.stat().st_size / 1024
+        print(f"Wrote {OUT_DEMO} ({sz_d:.1f} KiB, {len(demo_cells_local)} cells)")
+
+    if "standalone" in modes:
+        standalone_cells_local = _patch_standalone_markdown(_convert_for_standalone(cells))
+        standalone_nb = {
+            "cells": standalone_cells_local,
+            "metadata": notebook["metadata"],
+            "nbformat": 4,
+            "nbformat_minor": 5,
+        }
+        OUT_STANDALONE.write_text(
+            json.dumps(standalone_nb, indent=1, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        sz_s = OUT_STANDALONE.stat().st_size / 1024
+        print(f"Wrote {OUT_STANDALONE} ({sz_s:.1f} KiB, {len(standalone_cells_local)} cells)")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Build Colab replication notebooks from src/.")
+    parser.add_argument(
+        "--mode",
+        choices=("full", "demo", "standalone", "all"),
+        default="all",
+        help="Which notebook(s) to emit (default: all three).",
+    )
+    args = parser.parse_args()
+    _emit_notebooks(args.mode)
+
+
+if __name__ == "__main__":
+    main()

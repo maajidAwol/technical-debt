@@ -25,6 +25,11 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from config import CV_FOLDS, LABEL_VARIANTS, TABLES_DIR  # noqa: E402
+from src.analysis.significance import (  # noqa: E402
+    attach_ci_to_summary,
+    bootstrap_confidence_intervals,
+    pairwise_wilcoxon,
+)
 from src.models.train import (  # noqa: E402
     fold_results_to_frame,
     load_variant_matrix,
@@ -39,8 +44,13 @@ MODELS = [
     "random_forest",
     "xgboost",
     "lightgbm",
-    # SVM is excluded by default - RBF-SVM scales poorly on 24k x 62
-    # and adds limited information over the other five on this task.
+    "svm",
+    # SVM activated 2026-04-27 to satisfy the proposal Section 3.5
+    # commitment to compare DT/RF/SVM/GBM. RBF-SVM with class_weight
+    # balancing on the within-project 10-fold CV completes in ~95 s
+    # per variant - manageable here. Note: SVM is *deliberately
+    # omitted* from scripts/08_lopo.py because 22-fold LOPO would
+    # cost ~65 min just for SVM (audit refinement #3).
 ]
 
 
@@ -52,8 +62,14 @@ def main() -> None:
     print(f"[Stage 7] Variants: {LABEL_VARIANTS}")
     print(f"[Stage 7] Models:   {MODELS}")
 
+    # Wipe stale fold-level predictions so a re-run doesn't accumulate
+    # rows from earlier configurations.
+    pred_path = TABLES_DIR / "within_project_predictions.parquet"
+    if pred_path.exists():
+        pred_path.unlink()
+
     for variant in LABEL_VARIANTS:
-        X, y, _ = load_variant_matrix(variant)
+        X, y, proj = load_variant_matrix(variant)
         pos_rate = 100 * y.mean()
         print(
             f"\n[Stage 7] variant={variant:<11}  rows={len(X):,}  "
@@ -61,7 +77,15 @@ def main() -> None:
         )
         for model_name in MODELS:
             t1 = time.time()
-            results = stratified_kfold_cv(variant, model_name, X, y, n_splits=CV_FOLDS)
+            results = stratified_kfold_cv(
+                variant,
+                model_name,
+                X,
+                y,
+                n_splits=CV_FOLDS,
+                persist_predictions=True,
+                project_id=proj,
+            )
             if not results:
                 print(f"   {model_name:<20}  SKIPPED (not installed)")
                 continue
@@ -82,6 +106,29 @@ def main() -> None:
     fold_df.to_csv(TABLES_DIR / "within_project_folds.csv", index=False)
     summary = summarize(fold_df)
     summary.to_csv(TABLES_DIR / "within_project_summary.csv", index=False)
+
+    # Bootstrap 95% CIs (10000 resamples) and a side-by-side
+    # _with_ci.csv variant for convenient pivoting downstream.
+    ci_df = bootstrap_confidence_intervals(fold_df)
+    ci_df.to_csv(TABLES_DIR / "within_project_ci.csv", index=False)
+    summary_with_ci = attach_ci_to_summary(summary, ci_df)
+    summary_with_ci.to_csv(TABLES_DIR / "within_project_summary_with_ci.csv", index=False)
+
+    # Wilcoxon paired tests on per-fold F1 + PR-AUC, Bonferroni
+    # corrected per variant (15 pairs at 6 models).
+    sig_rows = []
+    for metric in ("f1", "pr_auc"):
+        sig_rows.append(
+            pairwise_wilcoxon(
+                fold_df,
+                pair_within="variant",
+                contrast_col="model",
+                metric=metric,
+                paired_on=("fold",),
+            )
+        )
+    pairwise_df = pd.concat(sig_rows, ignore_index=True)
+    pairwise_df.to_csv(TABLES_DIR / "pairwise_significance.csv", index=False)
 
     print("\n[Stage 7] Within-project summary (mean across folds):")
     metric_mean_cols = [c for c in summary.columns if c.endswith("_mean")]

@@ -32,6 +32,11 @@ warnings.filterwarnings("ignore", message=".*convergence.*")
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from config import LABEL_VARIANTS, TABLES_DIR  # noqa: E402
+from src.analysis.significance import (  # noqa: E402
+    attach_ci_to_summary,
+    bootstrap_confidence_intervals,
+    pairwise_wilcoxon,
+)
 from src.models.cross_project import (  # noqa: E402
     lopo_cv,
     lopo_results_to_frame,
@@ -45,6 +50,13 @@ MODELS = [
     "random_forest",
     "xgboost",
     "lightgbm",
+    # SVM is *intentionally* excluded from LOPO. RBF-SVM with
+    # class_weight balancing costs ~95 s per fold on the within-project
+    # CV; in LOPO each variant would loop over 22 held-out projects
+    # with 22 * (~3 min) ~= 66 min per variant, which is incompatible
+    # with our Colab CPU budget. SVM still appears in scripts/07_train.py
+    # so the proposal's DT/RF/SVM/GBM comparison commitment is met
+    # at within-project scope (audit refinement #3, 2026-04-27).
 ]
 METRIC_COLS = ["precision", "recall", "f1", "roc_auc", "pr_auc", "mcc", "ce_at_20"]
 
@@ -73,12 +85,18 @@ def main() -> None:
     print(f"[Stage 8] Models   : {MODELS}")
     print("[Stage 8] Leave-one-project-out validation running ...\n")
 
+    # Wipe stale per-row predictions so a re-run doesn't accumulate
+    # rows from earlier configurations.
+    pred_path = TABLES_DIR / "lopo_predictions.parquet"
+    if pred_path.exists():
+        pred_path.unlink()
+
     all_folds = []
     for variant in LABEL_VARIANTS:
         print(f"[Stage 8] variant={variant}")
         for model_name in MODELS:
             t1 = time.time()
-            results = lopo_cv(variant, model_name)
+            results = lopo_cv(variant, model_name, persist_predictions=True)
             if not results:
                 print(f"   {model_name:<20}  SKIPPED")
                 continue
@@ -102,6 +120,28 @@ def main() -> None:
 
     summary = lopo_summary(fold_df)
     summary.to_csv(TABLES_DIR / "lopo_summary.csv", index=False)
+
+    # Bootstrap 95% CIs across held-out projects.
+    ci_df = bootstrap_confidence_intervals(fold_df)
+    ci_df.to_csv(TABLES_DIR / "lopo_ci.csv", index=False)
+    summary_with_ci = attach_ci_to_summary(summary, ci_df)
+    summary_with_ci.to_csv(TABLES_DIR / "lopo_summary_with_ci.csv", index=False)
+
+    # Pairwise Wilcoxon across models on per-project metrics
+    # (10 pairs at 5 models, Bonferroni corrected per variant).
+    sig_rows = []
+    for metric in ("f1", "pr_auc"):
+        sig_rows.append(
+            pairwise_wilcoxon(
+                fold_df,
+                pair_within="variant",
+                contrast_col="model",
+                metric=metric,
+                paired_on=("held_out_project",),
+            )
+        )
+    pairwise_df = pd.concat(sig_rows, ignore_index=True)
+    pairwise_df.to_csv(TABLES_DIR / "lopo_pairwise_significance.csv", index=False)
 
     gap = _build_gap_table(summary)
     if not gap.empty:

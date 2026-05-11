@@ -1,0 +1,66 @@
+[Stage 8] Variants : ('consequence', 'severity', 'szz')
+[Stage 8] Models   : ['logistic_regression', 'decision_tree', 'random_forest', 'xgboost', 'lightgbm']
+[Stage 8] Leave-one-project-out validation running ...
+
+[Stage 8] variant=consequence
+   logistic_regression   projs=22  F1=0.363  ROC=0.759  PR_AUC=0.455  MCC=0.224  CE@20=0.476  (37.7s)
+   decision_tree         projs=22  F1=0.266  ROC=0.574  PR_AUC=0.215  MCC=0.135  CE@20=0.287  (11.4s)
+   random_forest         projs=22  F1=0.190  ROC=0.788  PR_AUC=0.486  MCC=0.214  CE@20=0.502  (20.7s)
+   xgboost               projs=22  F1=0.333  ROC=0.782  PR_AUC=0.475  MCC=0.283  CE@20=0.492  (12.9s)
+   lightgbm              projs=22  F1=0.401  ROC=0.765  PR_AUC=0.459  MCC=0.296  CE@20=0.485  (14.7s)
+
+[Stage 8] variant=severity
+   logistic_regression   projs=22  F1=0.600  ROC=0.946  PR_AUC=0.702  MCC=0.568  CE@20=0.884  (22.6s)
+   decision_tree         projs=22  F1=0.479  ROC=0.700  PR_AUC=0.322  MCC=0.447  CE@20=0.482  (7.2s)
+   random_forest         projs=22  F1=0.376  ROC=0.960  PR_AUC=0.703  MCC=0.408  CE@20=0.873  (15.6s)
+   xgboost               projs=22  F1=0.570  ROC=0.959  PR_AUC=0.711  MCC=0.553  CE@20=0.870  (12.8s)
+   lightgbm              projs=22  F1=0.602  ROC=0.956  PR_AUC=0.702  MCC=0.571  CE@20=0.871  (14.5s)
+
+[Stage 8] variant=szz
+   logistic_regression   projs=16  F1=0.107  ROC=0.775  PR_AUC=0.184  MCC=0.100  CE@20=0.554  (53.2s)
+   decision_tree         projs=16  F1=0.021  ROC=0.500  PR_AUC=0.040  MCC=0.007  CE@20=0.177  (5.1s)
+   random_forest         projs=16  F1=0.000  ROC=0.760  PR_AUC=0.168  MCC=0.000  CE@20=0.542  (11.1s)
+   xgboost               projs=16  F1=0.013  ROC=0.773  PR_AUC=0.137  MCC=0.018  CE@20=0.528  (10.3s)
+   lightgbm              projs=16  F1=0.038  ROC=0.713  PR_AUC=0.151  MCC=0.052  CE@20=0.489  (13.6s)
+
+[Stage 8] LOPO summary (mean across held-out projects):
+    variant               model  n_projects  precision_mean  recall_mean  f1_mean  roc_auc_mean  pr_auc_mean  mcc_mean  ce_at_20_mean
+consequence       decision_tree          22           0.266        0.285    0.266         0.574        0.215     0.135          0.287
+consequence            lightgbm          22           0.366        0.491    0.401         0.765        0.459     0.296          0.485
+consequence logistic_regression          22           0.298        0.665    0.363         0.759        0.455     0.224          0.476
+consequence       random_forest          22           0.558        0.120    0.190         0.788        0.486     0.214          0.502
+consequence             xgboost          22           0.536        0.266    0.333         0.782        0.475     0.283          0.492
+   severity       decision_tree          22           0.570        0.434    0.479         0.700        0.322     0.447          0.482
+   severity            lightgbm          22           0.584        0.683    0.602         0.956        0.702     0.571          0.871
+   severity logistic_regression          22           0.521        0.773    0.600         0.946        0.702     0.568          0.884
+   severity       random_forest          22           0.761        0.264    0.376         0.960        0.703     0.408          0.873
+   severity             xgboost          22           0.707        0.503    0.570         0.959        0.711     0.553          0.870
+        szz       decision_tree          16           0.024        0.042    0.021         0.500        0.040     0.007          0.177
+        szz            lightgbm          16           0.130        0.055    0.038         0.713        0.151     0.052          0.489
+        szz logistic_regression          16           0.126        0.412    0.107         0.775        0.184     0.100          0.554
+        szz       random_forest          16           0.000        0.000    0.000         0.760        0.168     0.000          0.542
+        szz             xgboost          16           0.062        0.007    0.012         0.773        0.137     0.018          0.528
+
+[Stage 8] Generalization gap (within - LOPO) on key metrics:
+    variant               model  f1_within  f1_lopo  f1_gap  ce_at_20_within  ce_at_20_lopo  ce_at_20_gap  pr_auc_within  pr_auc_lopo  pr_auc_gap
+consequence       decision_tree      0.501    0.266   0.235            0.521          0.287         0.235          0.327        0.215       0.112
+consequence            lightgbm      0.606    0.401   0.204            0.724          0.485         0.239          0.686        0.459       0.227
+consequence logistic_regression      0.487    0.363   0.124            0.594          0.476         0.118          0.517        0.455       0.062
+consequence       random_forest      0.554    0.190   0.363            0.746          0.502         0.243          0.703        0.486       0.217
+consequence                 svm      0.415      NaN     NaN            0.602            NaN           NaN          0.514          NaN         NaN
+consequence             xgboost      0.573    0.333   0.240            0.736          0.492         0.243          0.695        0.475       0.220
+   severity       decision_tree      0.641    0.479   0.162            0.674          0.482         0.192          0.448        0.322       0.126
+   severity            lightgbm      0.716    0.602   0.114            0.963          0.871         0.092          0.820        0.702       0.117
+   severity logistic_regression      0.651    0.600   0.051            0.924          0.884         0.040          0.758        0.702       0.056
+   severity       random_forest      0.674    0.376   0.298            0.968          0.873         0.095          0.807        0.703       0.104
+   severity                 svm      0.602      NaN     NaN            0.918            NaN           NaN          0.722          NaN         NaN
+   severity             xgboost      0.711    0.570   0.141            0.968          0.870         0.098          0.820        0.711       0.109
+        szz       decision_tree      0.235    0.021   0.214            0.360          0.177         0.183          0.068        0.040       0.028
+        szz            lightgbm      0.324    0.038   0.285            0.916          0.489         0.427          0.264        0.151       0.113
+        szz logistic_regression      0.108    0.107   0.001            0.852          0.554         0.298          0.213        0.184       0.029
+        szz       random_forest      0.098    0.000   0.098            0.943          0.542         0.401          0.280        0.168       0.112
+        szz                 svm      0.050      NaN     NaN            0.859            NaN           NaN          0.184          NaN         NaN
+        szz             xgboost      0.186    0.012   0.174            0.919          0.528         0.391          0.276        0.137       0.139
+
+[Stage 8] Elapsed: 263.9s
+[Stage 8] Complete.
