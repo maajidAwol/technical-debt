@@ -43,14 +43,14 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from config import (  # noqa: E402
-    BUG_FIX_KEYWORDS,
+    BUGFIX_REGEX,
     JIRA_ISSUE_KEY_PATTERN,
     PATH_EXCLUSION_PATTERNS,
     SOURCE_FILE_EXTENSIONS,
 )
 
 
-_BUGFIX_REGEX = re.compile("|".join(BUG_FIX_KEYWORDS), re.IGNORECASE)
+_BUGFIX_REGEX = re.compile(BUGFIX_REGEX, re.IGNORECASE)
 _JIRA_KEY_REGEX = re.compile(JIRA_ISSUE_KEY_PATTERN)
 
 

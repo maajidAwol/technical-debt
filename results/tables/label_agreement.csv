@@ -1,4 +1,0 @@
-variant_a,variant_b,positives_a,positives_b,agreement_pct,cohen_kappa,jaccard,intersection,union
-consequence,severity,3533,2305,82.95,0.2092,0.1775,880,4958
-consequence,szz,3533,297,86.44,0.1337,0.0831,294,3536
-severity,szz,2305,297,89.89,0.0498,0.0367,92,2510

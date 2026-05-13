@@ -129,8 +129,8 @@ def _one_project(pid: str, t: pd.Timestamp, sliced: dict[str, pd.DataFrame]) -> 
         "hist_cols": len(hist_df.columns),
         "graph_cols": len(graph_df.columns),
         "prior_cols": len(prior_df.columns),
-        "mean_n_issues_open": round(float(static_df["n_issues_open"].mean()), 2)
-        if "n_issues_open" in static_df.columns and len(static_df)
+        "mean_n_code_smells": round(float(static_df["n_code_smells"].mean()), 2)
+        if "n_code_smells" in static_df.columns and len(static_df)
         else 0.0,
         "mean_total_commits_pre": round(float(hist_df["total_commits_pre"].mean()), 2)
         if "total_commits_pre" in hist_df.columns and len(hist_df)

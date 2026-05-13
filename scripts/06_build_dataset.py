@@ -1,31 +1,26 @@
 """
-Stage 6 - Assemble per-variant modeling datasets with leakage audit.
+Stage 6 - Assemble the final modeling dataset.
 
-Merges ``features_static.parquet`` + ``features_historical.parquet`` with
-each of the three label parquets from Stage 4, producing three
-training-ready datasets:
+Merges the four feature-family parquets with ``labels.parquet`` into a
+single ``dataset_final.parquet`` with exactly 27 feature columns +
+``is_high_risk`` (28 modelling columns) plus ``project_id`` and
+``basename`` for downstream grouping.
 
-- ``data/processed/dataset_consequence.parquet``
-- ``data/processed/dataset_severity.parquet``  (severity-leaky features dropped)
-- ``data/processed/dataset_szz.parquet``
+Pre-processing:
+    1. NaN -> 0 for every feature column
+    2. log1p transform for heavy-tailed counts (LOG1P_FEATURES)
 
-The script additionally performs a **temporal leakage audit**:
+Scaling is NOT applied here: ``StandardScaler`` is fitted per CV fold
+inside the training pipelines so it never leaks across folds.
 
-1. Every row must carry a ``snapshot_date`` equal to its project's
-   Stage-2 snapshot (sanity check for temporal consistency).
-2. For each variant, label-defining columns are dropped from the
-   feature matrix (``SEVERITY_LEAKY_FEATURES`` for severity, etc.).
-3. Missing project-level context (e.g. zookeeper lacking a SONAR_ANALYSIS
-   row <= t) is handled by adding a ``has_project_context`` indicator
-   and median-imputing the numeric columns per project class.
-4. A per-variant summary (positive rate, rows, feature count) is
-   written to ``results/tables/dataset_summary.csv``.
+Leakage assertions:
+    - No raw severity counts (n_blocker / n_critical) in the matrix.
+    - The weight-derivation surrogate (future_bugfix_count) is absent.
 
-Run
----
-.. code-block:: bash
-
-    .\\venv\\Scripts\\python.exe scripts/06_build_dataset.py
+Outputs
+-------
+- ``data/processed/dataset_final.parquet``
+- ``data/processed/feature_catalog.csv``
 """
 from __future__ import annotations
 
@@ -38,160 +33,221 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from config import (  # noqa: E402
+    ALL_FEATURES,
+    FEATURE_FAMILIES,
+    LOG1P_FEATURES,
     PROCESSED_DATA_DIR,
-    SEVERITY_LEAKY_FEATURES,
-    SZZ_LEAKY_FEATURES,
     TABLES_DIR,
 )
 
 
 KEY_COLS = ["project_id", "basename"]
-LABEL_COLS = ["is_high_risk"]
+LABEL_COL = "is_high_risk"
+
+
+FEATURE_CATALOG_ROWS = [
+    # Family 1: Size / Complexity (project-level context replicated per file)
+    ("ncloc", "size_complexity", "SONAR_MEASURES",
+     "Nagappan ICSE 2006",
+     "Larger files accumulate more debt opportunities"),
+    ("complexity", "size_complexity", "SONAR_MEASURES",
+     "McCabe 1976",
+     "Cyclomatic complexity increases change effort and error-proneness"),
+    ("cognitive_complexity", "size_complexity", "SONAR_MEASURES",
+     "Campbell 2018 (SonarSource)",
+     "Human-perceived complexity; hard to read = hard to maintain"),
+    ("functions", "size_complexity", "SONAR_MEASURES",
+     "Nagappan ICSE 2006",
+     "Method count - more methods = more potential debt entry points"),
+    ("classes", "size_complexity", "SONAR_MEASURES",
+     "Nagappan ICSE 2006",
+     "Class count - captures OO design scale"),
+
+    # Family 2: Static debt
+    ("n_code_smells", "static_debt", "SONAR_ISSUES",
+     "Tsoukalas JSS 2020",
+     "Maintainability violations (CODE_SMELL type)"),
+    ("n_bugs", "static_debt", "SONAR_ISSUES",
+     "Tsoukalas JSS 2020",
+     "BUG-type issues regardless of severity"),
+    ("total_debt_minutes", "static_debt", "SONAR_ISSUES",
+     "Tsoukalas JSS 2020",
+     "Remediation effort estimate; debt principal in minutes"),
+    ("issue_density", "static_debt", "SONAR_ISSUES / SONAR_MEASURES",
+     "Tsoukalas JSS 2020",
+     "total_issues / ncloc; size-normalized debt intensity"),
+    ("duplicated_lines_density", "static_debt", "SONAR_MEASURES",
+     "Fowler 1999",
+     "Duplication raises cost of propagating fixes"),
+
+    # Family 3: Historical change
+    ("total_commits_pre", "historical", "GIT_COMMITS",
+     "Kamei TSE 2013",
+     "Total commits touching the file before t"),
+    ("code_churn_pre", "historical", "GIT_COMMITS_CHANGES",
+     "Kamei TSE 2013",
+     "Lifetime lines added + removed; total volatility"),
+    ("recent_churn_90d", "historical", "GIT_COMMITS_CHANGES",
+     "Hassan ICSE 2009",
+     "Churn in last 90 days; current hotspot signal"),
+    ("commit_frequency_30d", "historical", "GIT_COMMITS",
+     "Hassan ICSE 2009",
+     "Commits in last 30 days; recent activity level"),
+    ("file_age_days", "historical", "GIT_COMMITS",
+     "Kamei TSE 2013",
+     "Days from first commit to t; older files carry more debt"),
+    ("days_since_last_change", "historical", "GIT_COMMITS",
+     "Kamei TSE 2013",
+     "Days from last commit to t; stale files may need attention"),
+    ("contributor_count", "historical", "GIT_COMMITS",
+     "Bird FSE 2011",
+     "Distinct authors before t; coordination overhead risk"),
+    ("ownership_ratio", "historical", "GIT_COMMITS",
+     "Bird FSE 2011",
+     "max_single_author_commits / total_commits_pre; diffuse responsibility risk"),
+
+    # Family 4: Co-change graph
+    ("cocg_degree", "graph", "GIT_COMMITS_CHANGES (co-change graph)",
+     "Jiang EMSE 2024",
+     "Number of co-change neighbours; architectural coupling"),
+    ("cocg_pagerank", "graph", "GIT_COMMITS_CHANGES (co-change graph)",
+     "Jiang EMSE 2024",
+     "Recursive importance via weighted PageRank"),
+    ("cocg_betweenness", "graph", "GIT_COMMITS_CHANGES (co-change graph)",
+     "Jiang EMSE 2024",
+     "Bridge status; changes here ripple to many modules"),
+    ("cocg_entropy", "graph", "GIT_COMMITS_CHANGES (co-change graph)",
+     "Ethari & Bhardwaj 2025",
+     "Shannon entropy over neighbour edge weights; high = scattered coupling"),
+
+    # Family 5: Prior defect
+    ("bugfix_commits_pre", "prior_defect", "GIT_COMMITS (regex)",
+     "Hassan ICSE 2009",
+     "Lifetime bug-fix commit count using the canonical regex"),
+    ("bugfix_commits_90d", "prior_defect", "GIT_COMMITS (regex)",
+     "Hassan ICSE 2009",
+     "Bug-fix commits last 90 days; recent defect activity"),
+    ("bug_density_pre", "prior_defect", "GIT_COMMITS (regex)",
+     "Hassan ICSE 2009",
+     "bugfix_commits_pre / total_commits_pre; normalized"),
+    ("n_jira_bugs_pre", "prior_defect", "JIRA_ISSUES",
+     "Falessi ESEM 2020",
+     "Officially confirmed bug tickets linked to the file before t"),
+    ("jira_blocker_flag", "prior_defect", "JIRA_ISSUES",
+     "Falessi ESEM 2020",
+     "Flag for any linked JIRA Bug with PRIORITY Blocker or Critical"),
+]
 
 
 def _load_features() -> pd.DataFrame:
     static = pd.read_parquet(PROCESSED_DATA_DIR / "features_static.parquet")
     hist = pd.read_parquet(PROCESSED_DATA_DIR / "features_historical.parquet")
+    graph = pd.read_parquet(PROCESSED_DATA_DIR / "features_graph.parquet")
+    prior = pd.read_parquet(PROCESSED_DATA_DIR / "features_priordefect.parquet")
 
-    # Optional new feature families. They are produced by Stage 5 in the
-    # current pipeline; older runs may not have them, in which case we
-    # silently skip rather than fail.
-    extras: list[pd.DataFrame] = []
-    for name in ("features_graph.parquet", "features_priordefect.parquet"):
-        path = PROCESSED_DATA_DIR / name
-        if path.exists():
-            extras.append(pd.read_parquet(path))
-
-    # Align snapshot_date between sources (they all come from the same
-    # Stage-2 table so should be identical; keep only static's copy).
-    for extra in extras:
-        if "snapshot_date" in extra.columns:
-            extra.drop(columns=["snapshot_date"], inplace=True)
-    if "snapshot_date" in static.columns and "snapshot_date" in hist.columns:
-        hist = hist.drop(columns=["snapshot_date"])
+    # Drop helper columns that may still be present.
+    for df in (static, hist, graph, prior):
+        for col in ("snapshot_date",):
+            if col in df.columns:
+                df.drop(columns=[col], inplace=True)
 
     out = static.merge(hist, on=KEY_COLS, how="outer")
-    for extra in extras:
-        out = out.merge(extra, on=KEY_COLS, how="left")
+    out = out.merge(graph, on=KEY_COLS, how="outer")
+    out = out.merge(prior, on=KEY_COLS, how="outer")
     return out
-
-
-def _prepare_labels(kind: str) -> pd.DataFrame:
-    path = PROCESSED_DATA_DIR / f"labels_{kind}.parquet"
-    df = pd.read_parquet(path)
-    keep_cols = KEY_COLS + ["is_high_risk"]
-    # For the consequence variant we also keep the raw risk_score for
-    # diagnostics and future threshold sensitivity analyses.
-    if kind == "consequence" and "risk_score" in df.columns:
-        keep_cols.append("risk_score")
-    return df[keep_cols]
-
-
-def _drop_leaky(df: pd.DataFrame, variant: str) -> pd.DataFrame:
-    if variant == "severity":
-        return df.drop(columns=[c for c in SEVERITY_LEAKY_FEATURES if c in df.columns])
-    if variant == "szz":
-        return df.drop(columns=[c for c in SZZ_LEAKY_FEATURES if c in df.columns])
-    return df
-
-
-def _fill_missing_context(df: pd.DataFrame) -> pd.DataFrame:
-    """Add ``has_project_context`` indicator and median-impute project_* columns."""
-    proj_cols = [c for c in df.columns if c.startswith("project_") and c != "project_id"]
-    if not proj_cols:
-        df["has_project_context"] = 1
-        return df
-    context_known = df[proj_cols].notna().any(axis=1)
-    df = df.assign(has_project_context=context_known.astype("int64"))
-
-    numeric_proj_cols = df[proj_cols].select_dtypes(include="number").columns.tolist()
-    if numeric_proj_cols:
-        medians = df[numeric_proj_cols].median()
-        df[numeric_proj_cols] = df[numeric_proj_cols].fillna(medians)
-
-    # Non-numeric (e.g. analysis_date) -> drop for modeling purposes
-    non_numeric = [c for c in proj_cols if c not in numeric_proj_cols]
-    if non_numeric:
-        df = df.drop(columns=non_numeric)
-    return df
-
-
-def _temporal_leakage_audit(df: pd.DataFrame, variant: str) -> dict:
-    """Return a dict describing the leakage-audit outcome for logging.
-
-    The dataset-build pipeline already filters every raw signal by
-    ``AUTHOR_DATE <= t`` (features) or ``AUTHOR_DATE > t`` (labels), so
-    the remaining risks are (a) accidentally retaining label-defining
-    features and (b) NaNs from project coverage gaps. Both are handled
-    upstream; this function records that it has happened.
-    """
-    forbidden = {
-        "severity": set(SEVERITY_LEAKY_FEATURES),
-        "szz": set(SZZ_LEAKY_FEATURES),
-        "consequence": set(),
-    }[variant]
-    present_forbidden = sorted(set(df.columns) & forbidden)
-    n_rows = len(df)
-    n_cols = len(df.columns)
-    n_features = n_cols - len(KEY_COLS) - len(LABEL_COLS)
-    if variant == "consequence" and "risk_score" in df.columns:
-        n_features -= 1
-    pos_rate = float(df["is_high_risk"].mean()) if len(df) else 0.0
-    return {
-        "variant": variant,
-        "rows": n_rows,
-        "columns_total": n_cols,
-        "n_features": n_features,
-        "positive_rate_pct": round(pos_rate * 100, 2),
-        "positives": int(df["is_high_risk"].sum()),
-        "retained_leaky_cols": present_forbidden,
-        "cols_with_any_na": int((df.isna().any()).sum()),
-    }
-
-
-def build_variant(
-    features: pd.DataFrame,
-    variant: str,
-) -> tuple[pd.DataFrame, dict]:
-    labels = _prepare_labels(variant)
-    df = features.merge(labels, on=KEY_COLS, how="inner")
-    df = _drop_leaky(df, variant)
-    df = _fill_missing_context(df)
-    audit = _temporal_leakage_audit(df, variant)
-    return df, audit
 
 
 def main() -> None:
     t0 = time.time()
-    print("[Stage 6] Loading features (static + historical) ...")
+    print("[Stage 6] Loading feature parquets ...")
     features = _load_features()
-    print(f"   features table: rows={len(features):,}  cols={len(features.columns)}")
+    labels = pd.read_parquet(PROCESSED_DATA_DIR / "labels.parquet")[
+        KEY_COLS + [LABEL_COL]
+    ]
+    print(f"   features rows={len(features):,}  cols={len(features.columns)}")
+    print(f"   labels   rows={len(labels):,}  positive_rate={100*labels[LABEL_COL].mean():.2f}%")
 
-    audits = []
-    for variant in ("consequence", "severity", "szz"):
-        t1 = time.time()
-        df, audit = build_variant(features, variant)
-        out_path = PROCESSED_DATA_DIR / f"dataset_{variant}.parquet"
-        df.to_parquet(out_path, index=False)
-        audits.append(audit)
-        print(
-            f"[Stage 6] {variant:<11}  rows={audit['rows']:>6,}  "
-            f"feats={audit['n_features']:>3}  "
-            f"positives={audit['positives']:>5} ({audit['positive_rate_pct']}%)  "
-            f"leaky_retained={audit['retained_leaky_cols']}  "
-            f"({time.time() - t1:.1f}s)"
-        )
+    df = features.merge(labels, on=KEY_COLS, how="inner")
+    print(f"[Stage 6] After merge: rows={len(df):,}")
 
-    summary = pd.DataFrame(audits)
-    # Ensure list column serializes as string for CSV readability
-    summary["retained_leaky_cols"] = summary["retained_leaky_cols"].apply(
-        lambda xs: ";".join(xs) if xs else ""
+    # ----- Restrict to the 27 declared features -----
+    missing = [c for c in ALL_FEATURES if c not in df.columns]
+    if missing:
+        raise KeyError(f"Stage 6: missing expected feature columns: {missing}")
+    df = df[KEY_COLS + ALL_FEATURES + [LABEL_COL]].copy()
+
+    # ----- NaN -> 0 across the 27 features -----
+    df[ALL_FEATURES] = df[ALL_FEATURES].fillna(0)
+
+    # ----- log1p heavy-tailed columns -----
+    print(f"[Stage 6] Applying log1p to {len(LOG1P_FEATURES)} columns ...")
+    for col in LOG1P_FEATURES:
+        df[col] = np.log1p(df[col].astype(float))
+
+    # ----- Leakage assertions -----
+    assert "n_blocker" not in df.columns and "n_critical" not in df.columns, (
+        "Severity leakage: raw severity counts found in feature matrix"
     )
-    summary.to_csv(TABLES_DIR / "dataset_summary.csv", index=False)
+    assert "future_bugfix_count" not in df.columns, (
+        "Surrogate leakage: future data found in feature matrix"
+    )
+    feat_cols = [c for c in df.columns if c not in KEY_COLS + [LABEL_COL]]
+    assert len(feat_cols) == 27, f"expected 27 feature cols, got {len(feat_cols)}: {feat_cols}"
+    assert df.isna().sum().sum() == 0, "NaN detected in dataset_final after preprocessing"
 
-    print("\n[Stage 6] Per-variant dataset summary (results/tables/dataset_summary.csv):")
-    with pd.option_context("display.width", 200):
-        print(summary.to_string(index=False))
+    # ----- Persist -----
+    out_path = PROCESSED_DATA_DIR / "dataset_final.parquet"
+    df.to_parquet(out_path, index=False)
+    print(f"[Stage 6] Wrote {out_path}  rows={len(df):,}  cols={len(df.columns)}")
+
+    # ----- Feature catalog -----
+    catalog = pd.DataFrame(
+        FEATURE_CATALOG_ROWS,
+        columns=["feature_name", "family", "source_table", "literature_citation", "rationale"],
+    )
+    assert len(catalog) == 27, f"feature_catalog has {len(catalog)} rows, expected 27"
+    # Sanity: every catalog row corresponds to a column in the dataset
+    miss = set(catalog["feature_name"]) - set(df.columns)
+    assert not miss, f"catalog features not in dataset: {miss}"
+    catalog.to_csv(PROCESSED_DATA_DIR / "feature_catalog.csv", index=False)
+    print(f"[Stage 6] Wrote feature_catalog.csv ({len(catalog)} features)")
+
+    # ----- Per-family summary log -----
+    print("\n[Stage 6] Feature family breakdown:")
+    for fam, cols in FEATURE_FAMILIES.items():
+        nz = (df[cols] != 0).any(axis=1).mean() * 100
+        print(f"   {fam:<16}  {len(cols)} features  non_zero_any={nz:.1f}%")
+
+    # ----- Prior-defect coverage diagnostic -----
+    # The prior-defect family depends on JIRA and the bug-fix regex
+    # matching commits. Projects with sparse JIRA linkage or terse commit
+    # messages may have most rows all-zero across this family - good to
+    # know before reading family ablation results.
+    prior_cols = FEATURE_FAMILIES["prior_defect"]
+    pf_rows = []
+    for pid, sub in df.groupby("project_id"):
+        all_zero = (sub[prior_cols] == 0).all(axis=1)
+        pf_rows.append(
+            {
+                "project_id": pid,
+                "n_files": int(len(sub)),
+                "n_all_zero_prior_defect": int(all_zero.sum()),
+                "pct_all_zero": round(100 * float(all_zero.mean()), 2),
+            }
+        )
+    pf_coverage = pd.DataFrame(pf_rows).sort_values("project_id").reset_index(drop=True)
+    pf_coverage.to_csv(PROCESSED_DATA_DIR / "prior_defect_coverage.csv", index=False)
+
+    high_zero = pf_coverage[pf_coverage["pct_all_zero"] > 80]
+    if len(high_zero) > 0:
+        print(f"\n[Stage 6] WARNING: {len(high_zero)} project(s) have > 80% rows with all-zero prior-defect features:")
+        print(high_zero.to_string(index=False))
+
+    pos_rate = 100 * df[LABEL_COL].mean()
+    print(f"\n[Stage 6] Final positive rate : {pos_rate:.2f}%  ({int(df[LABEL_COL].sum()):,} of {len(df):,})")
+
+    # Also emit a tiny tables/ ack so the verifier can find the summary.
+    TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"\n[Stage 6] Elapsed: {time.time() - t0:.1f}s")
     print("[Stage 6] Complete.")

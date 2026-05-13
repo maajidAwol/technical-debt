@@ -1,0 +1,49 @@
+[Stage 2] Strategy        : median
+[Stage 2] Observation win : 6 months
+[Stage 2] Computing snapshots for every project (master branch only) ...
+[Stage 2] Computed 31 project profiles in 17.1s
+
+[Stage 2] Eligibility summary:
+  Eligible projects : 22 / 31
+  Excluded projects : 9
+
+  Excluded details:
+    - org.apache:beanutils                 reason: post<50
+    - org.apache:collections               reason: post<50
+    - org.apache:commons-exec              reason: pre<500
+    - org.apache:commons-io                reason: post<50
+    - org.apache:dbutils                   reason: pre<500
+    - org.apache:jxpath                    reason: pre<500
+    - org.apache:ognl                      reason: pre<500
+    - org.apache:santuario                 reason: post<50
+    - org.apache:validator                 reason: post<50
+
+[Stage 2] Per-project profile (eligible, sorted by total_commits desc):
+                   project_id              first_commit               last_commit             snapshot_date  total_commits  pre_snapshot_commits  post_snapshot_commits  distinct_files_pre  distinct_authors_pre
+              org.apache:hive 2008-09-02 23:58:59+00:00 2021-09-30 08:47:08+00:00 2015-12-20 19:04:56+00:00          15733                  7867                    865               13771                   118
+             org.apache:felix 2005-07-19 10:41:53+00:00 2020-03-04 13:44:59+00:00 2011-06-29 22:31:28+00:00          15556                  7779                    606                4564                    38
+            org.apache:cocoon 2003-02-27 01:27:33+00:00 2019-04-14 05:36:41+00:00 2005-03-19 10:51:18+00:00          13161                  6581                    580                6760                    50
+           org.apache:archiva 2005-11-23 23:54:12+00:00 2021-08-31 13:48:12+00:00 2012-01-05 23:19:37+00:00           8695                  4348                   1095                3543                    24
+           org.apache:cayenne 2007-01-21 11:11:02+00:00 2021-09-13 08:52:50+00:00 2012-12-04 17:33:44+00:00           6733                  3367                    135                4258                    14
+            org.apache:thrift 2006-05-24 21:45:31+00:00 2021-09-26 11:45:25+00:00 2013-06-25 20:21:29+00:00           6386                  3193                    178                1525                    55
+          org.apache:httpcore 2005-02-08 21:51:02+00:00 2021-09-29 07:27:20+00:00 2012-01-17 20:23:33+00:00           3604                  1803                     70                 826                     8
+             org.apache:batik 2000-10-01 07:37:01+00:00 2021-01-12 10:14:17+00:00 2001-12-14 15:08:38+00:00           3524                  1763                    374                2870                    11
+     org.apache:configuration 2003-12-23 15:09:04+00:00 2021-09-28 15:05:21+00:00 2013-06-01 19:58:15+00:00           3413                  1707                    184                 648                    21
+        org.apache:httpclient 2005-12-21 18:47:13+00:00 2021-09-27 12:35:24+00:00 2012-06-07 19:43:22+00:00           3290                  1645                    127                 814                     9
+               org.apache:vfs 2002-07-16 17:19:16+00:00 2021-09-28 15:27:23+00:00 2012-11-15 03:10:21+00:00           3074                  1537                     76                 485                    21
+               org.apache:net 2002-04-03 01:04:21+00:00 2021-09-28 15:19:52+00:00 2011-03-25 00:12:09+00:00           2497                  1249                    162                 538                    22
+              org.apache:dbcp 2001-04-14 17:14:51+00:00 2021-09-28 15:06:35+00:00 2014-02-07 12:26:29+00:00           2465                  1233                    165                 186                    31
+         org.apache:zookeeper 2007-11-03 04:41:15+00:00 2021-09-27 15:48:29+00:00 2014-04-04 01:24:37+00:00           2361                  1181                     91                1293                    13
+          org.apache:digester 2001-05-03 00:28:33+00:00 2021-09-28 15:07:55+00:00 2011-02-19 17:06:55+00:00           2192                  1097                    777                 434                    28
+             org.apache:codec 2003-04-25 17:51:00+00:00 2021-09-28 15:03:54+00:00 2012-08-27 22:27:31+00:00           2144                  1073                    133                 286                    23
+     org.apache:commons-jelly 2002-02-11 00:27:41+00:00 2021-03-09 23:07:21+00:00 2003-02-07 12:53:55+00:00           1945                   973                     85                 622                    15
+      org.apache:commons-jexl 2002-04-26 04:23:17+00:00 2021-09-28 15:16:58+00:00 2009-12-11 18:55:35+00:00           1927                   964                    116                 470                    21
+              org.apache:bcel 2001-10-29 12:42:33+00:00 2021-09-28 14:54:56+00:00 2015-08-16 08:44:59+00:00           1753                   877                    217                 584                    20
+            org.apache:daemon 2003-09-04 23:28:19+00:00 2021-09-28 15:06:11+00:00 2010-10-02 15:25:47+00:00           1251                   626                    101                 228                    18
+org.apache:commons-fileupload 2002-03-24 07:05:13+00:00 2021-09-28 15:09:19+00:00 2013-03-11 09:56:20+00:00           1180                   591                    167                  98                    28
+       org.apache:commons-cli 2002-06-10 18:01:16+00:00 2021-09-28 15:01:44+00:00 2008-11-10 10:14:02+00:00           1021                   511                     66                 229                    23
+
+[Stage 2] Saved: C:\Users\maaji\Desktop\technical-debt\data\processed\project_snapshots.parquet
+[Stage 2] Saved: C:\Users\maaji\Desktop\technical-debt\results\tables\project_stats.csv
+[Stage 2] Total elapsed : 21.3s
+[Stage 2] Complete.

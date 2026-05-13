@@ -1,0 +1,38 @@
+[Stage 12] Running verification checklist ...
+
+[Stage 12] DATA
+  OK    labels.parquet is_high_risk is binary
+  OK    overall positive rate in [8%, 18%] - got 15.22%
+  OK    >=20 of 22 projects have >=5 positives - got 21
+  OK    dataset_final has 27 features + is_high_risk (28 modelling cols) - got 28
+  OK    no NaN in dataset_final
+  OK    no leaky severity counts in dataset_final
+  OK    no surrogate column in dataset_final
+  OK    derived_weights sums to 1.0 (+- 1e-9) - got 1.0
+
+[Stage 12] MODELS
+  OK    within_project_results has 4 model rows (unique)
+  OK    lopo_results has 4 model rows
+  OK    within_project_results has single 'f1' column
+  OK    model_comparison flags exactly one best model
+  OK    best LOPO F1 > 0.55 - got 0.7241
+  OK    best within-project F1 > 0.65 - got 0.8663
+  OK    best LOPO CE@20 > 0.65 - got 0.8228
+
+[Stage 12] PERSISTENCE
+  OK    best_model.pkl loads
+  OK    model_card.json threshold == 0.5 - got 0.5
+  OK    model_card.json n_features == 27
+  OK    feature_names.csv has 27 rows
+
+[Stage 12] OUTPUTS
+  OK    results/tables has 10 CSV files - got 10
+  OK    results/figures has 12 PNG files - got 12
+  OK    feature_catalog.csv has 27 rows
+  OK    corpus_summary.csv has 22 rows
+  OK    ablation_results.csv has 11 rows
+
+[Stage 12] IMPORT GUARD
+  OK    no stale imports of src.analysis.{significance,sensitivity} - ok
+
+[Stage 12] All checks passed.

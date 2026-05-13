@@ -1,4 +1,0 @@
-PROJECT_ID,FILE,COMMIT_HASH,DATE,COMMITTER_ID,LINES_ADDED,LINES_REMOVED,NOTE
-org.apache:archiva,pom.xml,2b6be811c1d4f5e81339616208530d486608e42b,2005-11-28 03:15:35+00:00,Brett Porter,223,0,repository manager - root POM   git-svn-id: https://svn.apache.org/repos/asf/maven/repository-manager/trunk@349352 13f79535-47bb-0310-9956-ffa450edef68
-org.apache:archiva,pom.xml,af0ddbcfc1e8c2528decbd458f42e16cbcae5051,2005-11-28 04:50:31+00:00,Brett Porter,5,1,update reports   git-svn-id: https://svn.apache.org/repos/asf/maven/repository-manager/trunk@349367 13f79535-47bb-0310-9956-ffa450edef68
-org.apache:archiva,pom.xml,ea640e1803a8535ebfba2ade4ea9272b240067e8,2005-11-29 01:34:22+00:00,Brett Porter,25,0,move discovery to a new component PR: MRM-9   git-svn-id: https://svn.apache.org/repos/asf/maven/repository-manager/trunk@349577 13f79535-47bb-0310-9956-ffa450edef68

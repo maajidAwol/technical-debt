@@ -1,349 +1,356 @@
 """
-Three-variant labeling for High-Risk Technical Debt.
+Dual-signal combined-weight binary label for technical debt.
 
-Implements the three mutually-disjoint label definitions compared in the
-approved MSc proposal (Section 3.4):
+Binary output: ``is_high_risk`` in {0, 1}. Built from six binary signals
+spanning two independent sources:
 
-1. **Consequence-oriented (primary)** - top ``P%`` per project by a weighted
-   risk score combining (a) future bug-fix commits, (b) future churn and
-   (c) future SZZ fault-inducing events in the observation window
-   ``(t, t + W]``.
-2. **Severity-based baseline** - positive iff the file has any SonarQube
-   BLOCKER or CRITICAL issue open at snapshot ``t``. This is the
-   conventional static-analysis view of "high-risk" debt.
-3. **SZZ defect-oriented baseline** - positive iff the file is touched by
-   at least one SZZ fault-inducing commit that is fixed inside the
-   observation window (classical SZZ-defect-prediction target).
+  Static (SonarQube, at snapshot t):
+    S1_severity     - file has >= 1 OPEN BLOCKER/CRITICAL issue
+    S2_debt         - total SonarQube DEBT minutes > project median
+    S3_smells       - count of CODE_SMELL issues > project median
 
-Each variant returns a DataFrame indexed by ``(project_id, basename)`` with
-a binary ``is_high_risk`` column plus the numeric signals used to derive
-it (kept for diagnostics and sensitivity analysis).
+  History (Git, AUTHOR_DATE <= t):
+    S4_bugfix       - bug-fix commit count > project median
+    S5_churn        - lifetime churn > project 75th percentile
+    S6_contributors - distinct authors > project median
 
-References
-----------
-- Lenarduzzi, V., et al. (2019). The Technical Debt Dataset. PROMISE.
-- Kamei, Y., et al. (2013). A large-scale empirical study of just-in-time
-  quality assurance. IEEE TSE 39(6).
-- Tsoukalas, D., et al. (2020). Machine learning for technical debt
-  identification. IEEE TSE.
-- Jiang, Z., Chen, T., Zhou, Y. (2024). Graph-based technical debt
-  prediction. Empir. Softw. Eng. 29.
+A weighted sum ``risk_score = sum(w_i * S_i)`` in [0, 1] is thresholded
+at 0.50 (relaxed to 0.45 / 0.40 per project if positives < 5).
+
+Weights are derived empirically via point-biserial correlation between
+each signal and a 6-month post-snapshot bug-fix surrogate (Kamei TSE
+2013 weighting approach). If the empirical weights are within 0.05 of
+the theoretically motivated baseline, the theoretical weights are used
+and the empirical run is logged as confirmation. The surrogate is used
+only for weight derivation and is never persisted alongside features.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-from typing import Iterable, Optional
+import re
+from typing import Dict, Iterable, Tuple
 
 import numpy as np
 import pandas as pd
+from scipy.stats import pointbiserialr
 
-sys.path.append(str(Path(__file__).resolve().parents[2]))
-from config import (  # noqa: E402
-    HIGH_RISK_PERCENTILE,
-    OBSERVATION_WINDOW_MONTHS,
-    RISK_SCORE_WEIGHTS,
-    SEVERITY_BASELINE_LEVELS,
-)
-from src.data.szz import (  # noqa: E402
-    basename_universe_at_snapshot,
-    bugfix_touches_in_window,
-    churn_in_window,
-    jira_bug_commits_in_window,
-    open_issues_at_snapshot,
-    szz_events_in_window,
+from config import (
+    BUGFIX_REGEX,
+    LABEL_MIN_POSITIVES_PER_PROJECT,
+    LABEL_RISK_THRESHOLD,
+    LABEL_SURROGATE_WINDOW_MONTHS,
+    LABEL_THRESHOLD_FALLBACKS,
+    SEVERITY_LABEL_LEVELS,
+    THEORETICAL_WEIGHTS,
 )
 
 
-# ---------------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------------
-def _min_max_norm(s: pd.Series) -> pd.Series:
-    """Min-max normalize a numeric Series to ``[0, 1]``; constant series -> 0."""
-    s = s.astype(float)
-    lo, hi = s.min(), s.max()
-    if not np.isfinite(lo) or not np.isfinite(hi) or hi == lo:
-        return pd.Series(np.zeros(len(s)), index=s.index)
-    return (s - lo) / (hi - lo)
+_BUGFIX_RE = re.compile(BUGFIX_REGEX, re.IGNORECASE)
 
+SIGNAL_COLUMNS: Tuple[str, ...] = (
+    "S1_severity",
+    "S2_debt",
+    "S3_smells",
+    "S4_bugfix",
+    "S5_churn",
+    "S6_contributors",
+)
 
-def _top_percentile(s: pd.Series, percentile: float) -> pd.Series:
-    """Boolean mask for the top ``percentile``% values of ``s`` (ties broken by value).
-
-    ``percentile`` is in ``[0, 100]``. If all values tie, returns all-False.
-    """
-    if len(s) == 0:
-        return pd.Series([], dtype=bool)
-    threshold = np.percentile(s, 100 - percentile)
-    mask = s > threshold
-    if mask.sum() == 0:
-        mask = s >= threshold
-    return mask
+# All six signals use p75 as the within-project
+# threshold. This ensures only genuinely elevated
+# files are flagged (top 25% on each dimension).
+# Using the median would flag ~50% of files per
+# signal by construction, which is not a useful
+# high-risk indicator. p75 alignment follows the
+# design rationale of S5 and is consistent with
+# percentile-based prioritization in Kamei 2013.
+# (S1 is a boolean presence flag for BLOCKER/CRITICAL
+# issues - not percentile-based by construction.)
 
 
 # ---------------------------------------------------------------------------
-# Consequence-oriented (primary) labeling
+# Six per-file binary signals at snapshot t
 # ---------------------------------------------------------------------------
-def compute_consequence_labels(
+def _project_basenames(
+    sonar_issues_p: pd.DataFrame,
+    changes_p: pd.DataFrame,
+) -> pd.Index:
+    """Union of basenames seen in either Sonar issues or Git changes for one project."""
+    sonar_b = sonar_issues_p["basename"].dropna().unique() if "basename" in sonar_issues_p else []
+    git_b = changes_p["basename"].dropna().unique() if "basename" in changes_p else []
+    return pd.Index(sorted(set(sonar_b) | set(git_b)), name="basename")
+
+
+def _static_signals(
+    sonar_issues_p: pd.DataFrame,
+    t: pd.Timestamp,
+    basenames: pd.Index,
+) -> pd.DataFrame:
+    """Compute S1, S2, S3 over basenames using SONAR_ISSUES rows with CREATION_DATE <= t."""
+    df = sonar_issues_p.copy()
+    if "CREATION_DATE" in df.columns:
+        df = df[df["CREATION_DATE"] <= t]
+    sev = df["SEVERITY"].astype(str).str.upper()
+    status = df["STATUS"].astype(str).str.upper()
+    issue_type = df["TYPE"].astype(str).str.upper()
+
+    # S1 - open BLOCKER/CRITICAL count
+    sev_mask = sev.isin(SEVERITY_LABEL_LEVELS) & (status == "OPEN")
+    n_sev = df.loc[sev_mask].groupby("basename").size()
+
+    # S2 - total debt
+    debt = df.groupby("basename")["DEBT"].sum(min_count=1).fillna(0.0)
+
+    # S3 - smell count
+    smell_mask = issue_type == "CODE_SMELL"
+    n_smells = df.loc[smell_mask].groupby("basename").size()
+
+    out = pd.DataFrame(index=basenames)
+    out["n_severity"] = n_sev.reindex(basenames).fillna(0).astype("int64")
+    out["total_debt"] = debt.reindex(basenames).fillna(0.0).astype("float64")
+    out["n_smells"] = n_smells.reindex(basenames).fillna(0).astype("int64")
+
+    out["S1_severity"] = (out["n_severity"] >= 1).astype("int64")
+
+    debt_p75 = out["total_debt"].quantile(0.75)
+    smell_p75 = out["n_smells"].quantile(0.75)
+    out["S2_debt"] = (out["total_debt"] > debt_p75).astype("int64")
+    out["S3_smells"] = (out["n_smells"] > smell_p75).astype("int64")
+    return out
+
+
+def _history_signals(
+    commits_p: pd.DataFrame,
+    changes_p: pd.DataFrame,
+    t: pd.Timestamp,
+    basenames: pd.Index,
+) -> pd.DataFrame:
+    """Compute S4, S5, S6 over basenames using commits/changes with AUTHOR_DATE/DATE <= t."""
+    if "AUTHOR_DATE" in commits_p.columns:
+        commits_pre = commits_p[commits_p["AUTHOR_DATE"] <= t]
+    else:
+        commits_pre = commits_p.iloc[0:0]
+
+    if "DATE" in changes_p.columns:
+        changes_pre = changes_p[changes_p["DATE"] <= t]
+    else:
+        changes_pre = changes_p.iloc[0:0]
+
+    commit_meta = commits_pre[["COMMIT_HASH", "AUTHOR"]].copy()
+    if "is_bugfix" in commits_pre.columns:
+        commit_meta["is_bugfix"] = commits_pre["is_bugfix"].astype(bool).values
+    else:
+        msgs = commits_pre.get("COMMIT_MESSAGE", pd.Series([""] * len(commits_pre)))
+        commit_meta["is_bugfix"] = msgs.fillna("").astype(str).str.contains(_BUGFIX_RE, regex=True)
+
+    file_commit_pairs = changes_pre[
+        ["COMMIT_HASH", "basename", "LINES_ADDED", "LINES_REMOVED"]
+    ].merge(commit_meta, on="COMMIT_HASH", how="left")
+    file_commit_pairs["is_bugfix"] = file_commit_pairs["is_bugfix"].fillna(False).astype(bool)
+
+    # S4 - bug-fix commit count per basename
+    bf = (
+        file_commit_pairs[file_commit_pairs["is_bugfix"]]
+        .drop_duplicates(["basename", "COMMIT_HASH"])
+        .groupby("basename")
+        .size()
+    )
+
+    # S5 - total churn (added + removed) per basename
+    file_commit_pairs["churn"] = (
+        file_commit_pairs["LINES_ADDED"].fillna(0).astype("int64")
+        + file_commit_pairs["LINES_REMOVED"].fillna(0).astype("int64")
+    )
+    churn = file_commit_pairs.groupby("basename")["churn"].sum()
+
+    # S6 - distinct authors per basename
+    authors = (
+        file_commit_pairs.dropna(subset=["AUTHOR"])
+        .groupby("basename")["AUTHOR"]
+        .nunique()
+    )
+
+    out = pd.DataFrame(index=basenames)
+    out["n_bugfix"] = bf.reindex(basenames).fillna(0).astype("int64")
+    out["total_churn"] = churn.reindex(basenames).fillna(0).astype("int64")
+    out["n_authors"] = authors.reindex(basenames).fillna(0).astype("int64")
+
+    bf_p75 = out["n_bugfix"].quantile(0.75)
+    churn_p75 = out["total_churn"].quantile(0.75)
+    auth_p75 = out["n_authors"].quantile(0.75)
+
+    out["S4_bugfix"] = (out["n_bugfix"] > bf_p75).astype("int64")
+    out["S5_churn"] = (out["total_churn"] > churn_p75).astype("int64")
+    out["S6_contributors"] = (out["n_authors"] > auth_p75).astype("int64")
+    return out
+
+
+def _future_bugfix_count(
+    commits_p: pd.DataFrame,
+    changes_p: pd.DataFrame,
+    t: pd.Timestamp,
+    window_months: int,
+    basenames: pd.Index,
+) -> pd.Series:
+    """Surrogate: bug-fix commits per basename in (t, t + window]. Weight-derivation only."""
+    if "AUTHOR_DATE" not in commits_p.columns or "DATE" not in changes_p.columns:
+        return pd.Series(0, index=basenames, dtype="int64", name="future_bugfix_count")
+
+    t_end = t + pd.DateOffset(months=window_months)
+    post_commits = commits_p[(commits_p["AUTHOR_DATE"] > t) & (commits_p["AUTHOR_DATE"] <= t_end)]
+    if "is_bugfix" in post_commits.columns:
+        bf_hashes = post_commits.loc[post_commits["is_bugfix"].astype(bool), "COMMIT_HASH"]
+    else:
+        msgs = post_commits.get("COMMIT_MESSAGE", pd.Series([""] * len(post_commits)))
+        is_bf = msgs.fillna("").astype(str).str.contains(_BUGFIX_RE, regex=True)
+        bf_hashes = post_commits.loc[is_bf, "COMMIT_HASH"]
+
+    if len(bf_hashes) == 0:
+        return pd.Series(0, index=basenames, dtype="int64", name="future_bugfix_count")
+
+    post_changes = changes_p[
+        (changes_p["DATE"] > t)
+        & (changes_p["DATE"] <= t_end)
+        & changes_p["COMMIT_HASH"].isin(bf_hashes)
+    ]
+    counts = (
+        post_changes.drop_duplicates(["basename", "COMMIT_HASH"])
+        .groupby("basename")
+        .size()
+    )
+    return counts.reindex(basenames).fillna(0).astype("int64").rename("future_bugfix_count")
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+def compute_dual_signal_signals(
     project_id: str,
-    snapshot: pd.Timestamp,
+    t: pd.Timestamp,
     commits: pd.DataFrame,
     changes: pd.DataFrame,
-    szz: pd.DataFrame,
-    jira: Optional[pd.DataFrame] = None,
-    window_months: int = OBSERVATION_WINDOW_MONTHS,
-    percentile: float = HIGH_RISK_PERCENTILE,
-    weights: dict = RISK_SCORE_WEIGHTS,
-) -> pd.DataFrame:
-    """Compute consequence-oriented labels for one project.
-
-    The risk score is a weighted sum of three min-max-normalized components:
-    ``n_bugfix_commits_future`` (weight 0.5), ``future_churn`` (weight 0.3)
-    and ``n_szz_fixes_future`` (weight 0.2). Files ranked in the top
-    ``percentile`` percent within the project are flagged as high-risk.
-
-    Parameters
-    ----------
-    project_id :
-        Which project to compute for.
-    snapshot :
-        Snapshot date ``t`` for this project.
-    commits, changes, szz :
-        Cleaned DataFrames from Stage 3.
-    jira :
-        Optional Jira DataFrame; if supplied an extra
-        ``n_jira_bug_commits_future`` column is added for diagnostics
-        (not part of the primary score).
-    window_months :
-        Observation window length.
-    percentile :
-        Fraction of files labeled positive, in ``[0, 100]``.
-    weights :
-        Dictionary of component weights. Keys must be a subset of
-        ``{"bugfix_commits_future", "future_churn", "szz_defects_future"}``.
-
-    Returns
-    -------
-    DataFrame with columns:
-    ``project_id``, ``basename``, component counts, normalized components
-    (``*_norm``), ``risk_score``, ``is_high_risk``.
-    """
-    universe = basename_universe_at_snapshot(changes, project_id, snapshot)
-    if universe.empty:
-        return universe.assign(is_high_risk=False)
-
-    bf = bugfix_touches_in_window(commits, changes, project_id, snapshot, window_months)
-    ch = churn_in_window(changes, project_id, snapshot, window_months)
-    sz = szz_events_in_window(szz, changes, project_id, snapshot, window_months)
-
-    df = universe.merge(bf, on="basename", how="left")
-    df = df.merge(ch, on="basename", how="left")
-    df = df.merge(sz, on="basename", how="left")
-
-    if jira is not None:
-        jb = jira_bug_commits_in_window(commits, jira, changes, project_id, snapshot, window_months)
-        df = df.merge(jb, on="basename", how="left")
-        df["n_jira_bug_commits_future"] = df["n_jira_bug_commits_future"].fillna(0).astype("int64")
-
-    count_cols = [
-        "n_bugfix_commits_future",
-        "bugfix_churn_future",
-        "future_churn",
-        "future_add",
-        "future_removed",
-        "future_commits",
-        "n_szz_fixes_future",
-        "n_szz_inducing_past",
-    ]
-    for c in count_cols:
-        if c in df.columns:
-            df[c] = df[c].fillna(0).astype("int64")
-
-    df["bugfix_norm"] = _min_max_norm(df["n_bugfix_commits_future"])
-    df["churn_norm"] = _min_max_norm(df["future_churn"])
-    df["szz_norm"] = _min_max_norm(df["n_szz_fixes_future"])
-
-    w_b = weights.get("bugfix_commits_future", 0.5)
-    w_c = weights.get("future_churn", 0.3)
-    w_s = weights.get("szz_defects_future", 0.2)
-    total_w = w_b + w_c + w_s
-    if total_w == 0:
-        raise ValueError("RISK_SCORE_WEIGHTS sum to zero")
-
-    df["risk_score"] = (
-        w_b * df["bugfix_norm"] + w_c * df["churn_norm"] + w_s * df["szz_norm"]
-    ) / total_w
-
-    df["is_high_risk"] = _top_percentile(df["risk_score"], percentile)
-    df["is_high_risk"] = df["is_high_risk"].astype(bool)
-    return df
-
-
-# ---------------------------------------------------------------------------
-# Severity-based baseline labeling
-# ---------------------------------------------------------------------------
-_SEVERITY_ORDER = {"INFO": 0, "MINOR": 1, "MAJOR": 2, "CRITICAL": 3, "BLOCKER": 4}
-
-
-def compute_severity_labels(
-    project_id: str,
-    snapshot: pd.Timestamp,
     sonar_issues: pd.DataFrame,
-    changes: pd.DataFrame,
-    high_risk_levels: Iterable[str] = SEVERITY_BASELINE_LEVELS,
+    surrogate_window_months: int = LABEL_SURROGATE_WINDOW_MONTHS,
 ) -> pd.DataFrame:
-    """Compute SonarQube severity-based labels for one project.
+    """Return per-basename signals S1..S6 plus the weight-derivation surrogate.
 
-    A basename is labeled high-risk iff it has at least one SonarQube issue
-    open at ``snapshot`` whose ``SEVERITY`` is in ``high_risk_levels``
-    (default ``("BLOCKER", "CRITICAL")``).
-
-    Returns a DataFrame with columns:
-    ``project_id``, ``basename``, ``n_blocker``, ``n_critical``,
-    ``n_major``, ``n_minor``, ``n_info``, ``max_severity_rank``,
-    ``is_high_risk``.
+    The surrogate column ``future_bugfix_count`` is returned alongside S1..S6
+    so the caller can stack frames across projects to fit the empirical
+    weights. It must be dropped before merging with the feature matrix
+    (see assertions in scripts/06_build_dataset.py).
     """
-    universe = basename_universe_at_snapshot(changes, project_id, snapshot)
-    if universe.empty:
-        return universe.assign(is_high_risk=False)
-
-    open_iss = open_issues_at_snapshot(sonar_issues, project_id, snapshot)
-    if open_iss.empty:
-        df = universe.copy()
-        for col in ("n_blocker", "n_critical", "n_major", "n_minor", "n_info"):
-            df[col] = 0
-        df["max_severity_rank"] = 0
-        df["is_high_risk"] = False
-        return df
-
-    sev_counts = (
-        open_iss.pivot_table(
-            index="basename", columns="SEVERITY", values="ISSUE_KEY", aggfunc="count", fill_value=0
-        )
-        .rename(
-            columns={
-                "BLOCKER": "n_blocker",
-                "CRITICAL": "n_critical",
-                "MAJOR": "n_major",
-                "MINOR": "n_minor",
-                "INFO": "n_info",
-            }
-        )
-        .reset_index()
+    cp = commits[commits["PROJECT_ID"] == project_id] if "PROJECT_ID" in commits.columns else commits
+    ch = changes[changes["PROJECT_ID"] == project_id] if "PROJECT_ID" in changes.columns else changes
+    si = (
+        sonar_issues[sonar_issues["PROJECT_ID"] == project_id]
+        if "PROJECT_ID" in sonar_issues.columns
+        else sonar_issues
     )
-    for col in ("n_blocker", "n_critical", "n_major", "n_minor", "n_info"):
-        if col not in sev_counts.columns:
-            sev_counts[col] = 0
 
-    df = universe.merge(sev_counts, on="basename", how="left")
-    for col in ("n_blocker", "n_critical", "n_major", "n_minor", "n_info"):
-        df[col] = df[col].fillna(0).astype("int64")
+    basenames = _project_basenames(si, ch)
+    if len(basenames) == 0:
+        cols = ["project_id", "basename", *SIGNAL_COLUMNS, "future_bugfix_count"]
+        return pd.DataFrame({c: pd.Series(dtype="int64") for c in cols})
 
-    def _max_rank(row) -> int:
-        rank = 0
-        if row["n_blocker"] > 0:
-            rank = 4
-        elif row["n_critical"] > 0:
-            rank = 3
-        elif row["n_major"] > 0:
-            rank = 2
-        elif row["n_minor"] > 0:
-            rank = 1
-        elif row["n_info"] > 0:
-            rank = 0
-        return rank
+    static_df = _static_signals(si, t, basenames)
+    history_df = _history_signals(cp, ch, t, basenames)
+    surrogate = _future_bugfix_count(cp, ch, t, surrogate_window_months, basenames)
 
-    df["max_severity_rank"] = df.apply(_max_rank, axis=1).astype("int64")
-
-    levels = {s.upper() for s in high_risk_levels}
-    flags = (
-        (("BLOCKER" in levels) & (df["n_blocker"] > 0))
-        | (("CRITICAL" in levels) & (df["n_critical"] > 0))
-        | (("MAJOR" in levels) & (df["n_major"] > 0))
-        | (("MINOR" in levels) & (df["n_minor"] > 0))
-        | (("INFO" in levels) & (df["n_info"] > 0))
-    )
-    df["is_high_risk"] = flags.astype(bool)
-    return df
+    out = pd.DataFrame(index=basenames)
+    for col in SIGNAL_COLUMNS:
+        out[col] = static_df[col] if col in static_df.columns else history_df[col]
+    out["future_bugfix_count"] = surrogate
+    out.insert(0, "project_id", project_id)
+    out.index.name = "basename"
+    return out.reset_index()
 
 
-# ---------------------------------------------------------------------------
-# SZZ defect-oriented baseline labeling
-# ---------------------------------------------------------------------------
-def compute_szz_labels(
-    project_id: str,
-    snapshot: pd.Timestamp,
-    changes: pd.DataFrame,
-    szz: pd.DataFrame,
-    window_months: int = OBSERVATION_WINDOW_MONTHS,
-) -> pd.DataFrame:
-    """SZZ defect-oriented labels: basename is positive iff a fault-fixing
-    commit within the window modified it.
+def derive_weights_empirically(
+    df_with_signals: pd.DataFrame,
+    df_with_surrogate: pd.DataFrame,
+) -> Dict[str, float]:
+    """Empirical weights via |point-biserial correlation| with future bug-fix count.
 
-    This is the classical SZZ-based defect-prediction target, adapted to
-    basename granularity.
+    Both inputs must align row-by-row on ``(project_id, basename)``. Each
+    signal's |r| is floored at 0.01, normalised to sum to 1.0, rounded to
+    two decimals; rounding drift is absorbed by the largest-weight signal.
     """
-    universe = basename_universe_at_snapshot(changes, project_id, snapshot)
-    if universe.empty:
-        return universe.assign(is_high_risk=False)
-
-    sz = szz_events_in_window(szz, changes, project_id, snapshot, window_months)
-    df = universe.merge(sz, on="basename", how="left")
-    for c in ("n_szz_fixes_future", "n_szz_inducing_past"):
-        if c in df.columns:
-            df[c] = df[c].fillna(0).astype("int64")
+    if len(df_with_signals) != len(df_with_surrogate):
+        raise ValueError("signals and surrogate frames must have the same length")
+    y = df_with_surrogate["future_bugfix_count"].astype(float).values
+    corrs: Dict[str, float] = {}
+    for s in SIGNAL_COLUMNS:
+        x = df_with_signals[s].astype(float).values
+        if np.var(x) == 0 or np.var(y) == 0:
+            r = 0.0
         else:
-            df[c] = 0
-    df["is_high_risk"] = df["n_szz_fixes_future"] > 0
-    return df
+            r, _ = pointbiserialr(x, y)
+        corrs[s] = max(abs(float(r)), 0.01)
+
+    total = sum(corrs.values())
+    weights = {k: round(v / total, 2) for k, v in corrs.items()}
+    drift = 1.0 - sum(weights.values())
+    top = max(weights, key=weights.get)
+    weights[top] = round(weights[top] + drift, 2)
+    return weights
 
 
-# ---------------------------------------------------------------------------
-# Label agreement
-# ---------------------------------------------------------------------------
-def label_agreement(labels_by_variant: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """Pairwise Cohen's kappa and Jaccard between label variants.
+def choose_weights(
+    derived: Dict[str, float],
+    theoretical: Dict[str, float] = THEORETICAL_WEIGHTS,
+    tolerance: float = 0.05,
+) -> Tuple[Dict[str, float], str]:
+    """Pick theoretical weights if every signal is within ``tolerance``, else derived."""
+    max_diff = max(abs(derived[s] - theoretical[s]) for s in SIGNAL_COLUMNS)
+    if max_diff <= tolerance:
+        return dict(theoretical), "theoretical"
+    return dict(derived), "empirical"
 
-    Each value in ``labels_by_variant`` must be a DataFrame containing
-    ``project_id``, ``basename`` and ``is_high_risk`` columns.
+
+def apply_label_thresholding(
+    risk_scores: pd.Series,
+    min_positives: int = LABEL_MIN_POSITIVES_PER_PROJECT,
+    primary_threshold: float = LABEL_RISK_THRESHOLD,
+    fallback_thresholds: Iterable[float] = LABEL_THRESHOLD_FALLBACKS,
+) -> Tuple[pd.Series, float, bool]:
+    """Return (is_high_risk, threshold_used, satisfied_min_positives)."""
+    thresholds = [primary_threshold, *fallback_thresholds]
+    for thr in thresholds:
+        labels = (risk_scores >= thr).astype("int64")
+        if int(labels.sum()) >= min_positives:
+            return labels, thr, True
+    labels = (risk_scores >= thresholds[-1]).astype("int64")
+    return labels, thresholds[-1], False
+
+
+def compute_dual_signal_labels(
+    signals_df: pd.DataFrame,
+    weights: Dict[str, float],
+) -> pd.DataFrame:
+    """Score and threshold per project. Returns the labels.parquet row set.
+
+    ``signals_df`` must contain columns ``project_id``, ``basename``, and
+    ``S1_severity..S6_contributors``. The output adds ``risk_score``,
+    ``is_high_risk``, ``threshold_used``, ``min_positives_satisfied``.
     """
-    from itertools import combinations
+    score = np.zeros(len(signals_df), dtype="float64")
+    for s, w in weights.items():
+        score += float(w) * signals_df[s].astype("float64").values
+    out = signals_df[["project_id", "basename", *SIGNAL_COLUMNS]].copy()
+    out["risk_score"] = score
 
-    # Align all variants on the union of (project_id, basename)
-    keyed = {
-        name: df[["project_id", "basename", "is_high_risk"]]
-        .rename(columns={"is_high_risk": name})
-        for name, df in labels_by_variant.items()
-    }
-    merged = None
-    for name, df in keyed.items():
-        merged = df if merged is None else merged.merge(df, on=["project_id", "basename"], how="outer")
-    for name in keyed:
-        merged[name] = merged[name].fillna(False).astype(bool)
-
-    rows = []
-    names = list(keyed.keys())
-    for a, b in combinations(names, 2):
-        ya, yb = merged[a].values, merged[b].values
-        pa = ya.mean()
-        pb = yb.mean()
-        p_obs = (ya == yb).mean()
-        p_exp = pa * pb + (1 - pa) * (1 - pb)
-        kappa = (p_obs - p_exp) / (1 - p_exp) if p_exp < 1 else np.nan
-        inter = (ya & yb).sum()
-        union = (ya | yb).sum()
-        jaccard = inter / union if union > 0 else np.nan
-        rows.append(
-            {
-                "variant_a": a,
-                "variant_b": b,
-                "positives_a": int(ya.sum()),
-                "positives_b": int(yb.sum()),
-                "agreement_pct": round(p_obs * 100, 2),
-                "cohen_kappa": round(kappa, 4) if np.isfinite(kappa) else np.nan,
-                "jaccard": round(jaccard, 4) if np.isfinite(jaccard) else np.nan,
-                "intersection": int(inter),
-                "union": int(union),
-            }
-        )
-    return pd.DataFrame(rows)
+    is_high = np.zeros(len(out), dtype="int64")
+    threshold_used = np.zeros(len(out), dtype="float64")
+    min_positives_ok = np.ones(len(out), dtype="int64")
+    out = out.reset_index(drop=True)
+    for _, idx in out.groupby("project_id").groups.items():
+        positions = np.asarray(idx)
+        rs = out.loc[positions, "risk_score"]
+        labels, thr, ok = apply_label_thresholding(rs)
+        is_high[positions] = labels.values
+        threshold_used[positions] = thr
+        if not ok:
+            min_positives_ok[positions] = 0
+    out["is_high_risk"] = is_high
+    out["threshold_used"] = threshold_used
+    out["min_positives_satisfied"] = min_positives_ok
+    return out

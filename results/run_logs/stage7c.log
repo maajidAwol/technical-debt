@@ -1,87 +1,20 @@
-[Stage 7c] Calibration methods : ('platt', 'isotonic')
-[Stage 7c] Models              : ['logistic_regression', 'random_forest', 'xgboost', 'lightgbm']
-[Stage 7c] Outer CV folds      : 10
+[Stage 7] Mode      : tuned
+[Stage 7] CV folds  : 10
+[Stage 7] Models    : ['logistic_regression', 'random_forest', 'xgboost', 'lightgbm']
+[Stage 7] Dataset   : rows=12,449  feats=27  positives=2126 (17.08%)
+   logistic_regression     F1_opt=0.767  F1@0.5=0.733  ROC=0.962  PR=0.849  CE@20=0.827  thr=0.716  (2.5s)
+   random_forest           F1_opt=0.846  F1@0.5=0.858  ROC=0.986  PR=0.941  CE@20=0.926  thr=0.561  (14.1s)
+   xgboost                 F1_opt=0.868  F1@0.5=0.866  ROC=0.987  PR=0.945  CE@20=0.926  thr=0.488  (9.0s)
+   lightgbm                F1_opt=0.860  F1@0.5=0.862  ROC=0.987  PR=0.945  CE@20=0.930  thr=0.757  (10.7s)
 
-[Stage 7c] variant=consequence  rows=23,911  feats=81  positives=3533 (14.78%)
-   logistic_regression   uncalibrated  PR_AUC=0.517  F1=0.487  (18.2s)
-   logistic_regression   platt         PR_AUC=0.510  F1=0.174  Brier=0.1029  ECE=0.0676  (88.2s)
-   logistic_regression   isotonic      PR_AUC=0.499  F1=0.264  Brier=0.1091  ECE=0.0938  (83.9s)
-   random_forest         uncalibrated  PR_AUC=0.703  F1=0.554  (13.8s)
-   random_forest         platt         PR_AUC=0.685  F1=0.515  Brier=0.0806  ECE=0.0668  (64.5s)
-   random_forest         isotonic      PR_AUC=0.689  F1=0.496  Brier=0.0805  ECE=0.0601  (64.3s)
-   xgboost               uncalibrated  PR_AUC=0.695  F1=0.573  (7.9s)
-   xgboost               platt         PR_AUC=0.671  F1=0.483  Brier=0.0847  ECE=0.0815  (36.6s)
-   xgboost               isotonic      PR_AUC=0.672  F1=0.453  Brier=0.0863  ECE=0.0840  (35.9s)
-   lightgbm              uncalibrated  PR_AUC=0.686  F1=0.606  (8.5s)
-   lightgbm              platt         PR_AUC=0.663  F1=0.499  Brier=0.0863  ECE=0.0804  (38.9s)
-   lightgbm              isotonic      PR_AUC=0.667  F1=0.460  Brier=0.0872  ECE=0.0871  (40.4s)
+[Stage 7] Wrote C:\Users\maaji\Desktop\technical-debt\results\tables\within_project_results.csv  (40 rows)
 
-[Stage 7c] variant=severity     rows=23,911  feats=75  positives=2305 (9.64%)
-   logistic_regression   uncalibrated  PR_AUC=0.758  F1=0.651  (10.9s)
-   logistic_regression   platt         PR_AUC=0.756  F1=0.590  Brier=0.0448  ECE=0.0309  (57.6s)
-   logistic_regression   isotonic      PR_AUC=0.755  F1=0.630  Brier=0.0426  ECE=0.0164  (56.3s)
-   random_forest         uncalibrated  PR_AUC=0.807  F1=0.674  (10.2s)
-   random_forest         platt         PR_AUC=0.801  F1=0.687  Brier=0.0386  ECE=0.0240  (48.0s)
-   random_forest         isotonic      PR_AUC=0.801  F1=0.686  Brier=0.0383  ECE=0.0163  (47.8s)
-   xgboost               uncalibrated  PR_AUC=0.820  F1=0.711  (7.3s)
-   xgboost               platt         PR_AUC=0.821  F1=0.687  Brier=0.0385  ECE=0.0288  (33.6s)
-   xgboost               isotonic      PR_AUC=0.824  F1=0.684  Brier=0.0370  ECE=0.0225  (33.9s)
-   lightgbm              uncalibrated  PR_AUC=0.820  F1=0.716  (8.1s)
-   lightgbm              platt         PR_AUC=0.822  F1=0.710  Brier=0.0378  ECE=0.0263  (38.4s)
-   lightgbm              isotonic      PR_AUC=0.825  F1=0.681  Brier=0.0372  ECE=0.0234  (37.8s)
+[Stage 7] Per-model summary (mean across folds):
+              model  f1_optimized_mean  f1_default_mean  roc_auc_mean  pr_auc_mean  ce_at_20_mean  threshold_opt_mean
+           lightgbm              0.860            0.862         0.987        0.945          0.930               0.757
+logistic_regression              0.767            0.733         0.962        0.849          0.827               0.716
+      random_forest              0.846            0.858         0.986        0.941          0.926               0.561
+            xgboost              0.868            0.866         0.987        0.945          0.926               0.488
 
-[Stage 7c] variant=szz          rows=23,911  feats=79  positives=297 (1.24%)
-   logistic_regression   uncalibrated  PR_AUC=0.213  F1=0.108  (34.5s)
-   logistic_regression   platt         PR_AUC=0.197  F1=0.000  Brier=0.0114  ECE=0.0044  (179.8s)
-   logistic_regression   isotonic      PR_AUC=0.193  F1=0.000  Brier=0.0114  ECE=0.0103  (178.2s)
-   random_forest         uncalibrated  PR_AUC=0.280  F1=0.098  (8.9s)
-   random_forest         platt         PR_AUC=0.246  F1=0.013  Brier=0.0111  ECE=0.0057  (41.9s)
-   random_forest         isotonic      PR_AUC=0.231  F1=0.000  Brier=0.0110  ECE=0.0023  (41.6s)
-   xgboost               uncalibrated  PR_AUC=0.276  F1=0.186  (7.1s)
-   xgboost               platt         PR_AUC=0.245  F1=0.000  Brier=0.0112  ECE=0.0052  (32.3s)
-   xgboost               isotonic      PR_AUC=0.241  F1=0.000  Brier=0.0109  ECE=0.0037  (32.1s)
-   lightgbm              uncalibrated  PR_AUC=0.264  F1=0.324  (9.6s)
-   lightgbm              platt         PR_AUC=0.242  F1=0.000  Brier=0.0113  ECE=0.0049  (43.0s)
-   lightgbm              isotonic      PR_AUC=0.248  F1=0.000  Brier=0.0110  ECE=0.0045  (45.2s)
-
-[Stage 7c] Calibration summary (mean across folds):
-    variant               model       method  f1_mean  pr_auc_mean  brier_mean  nll_mean  ece_mean
-consequence            lightgbm     isotonic   0.4595       0.6674      0.0872    0.3004    0.0871
-consequence            lightgbm        platt   0.4988       0.6630      0.0863    0.2975    0.0804
-consequence            lightgbm uncalibrated   0.6056       0.6857         NaN       NaN       NaN
-consequence logistic_regression     isotonic   0.2641       0.4990      0.1091    0.3653    0.0938
-consequence logistic_regression        platt   0.1737       0.5102      0.1029    0.3467    0.0676
-consequence logistic_regression uncalibrated   0.4872       0.5166         NaN       NaN       NaN
-consequence       random_forest     isotonic   0.4964       0.6893      0.0805    0.2709    0.0601
-consequence       random_forest        platt   0.5150       0.6850      0.0806    0.2825    0.0668
-consequence       random_forest uncalibrated   0.5539       0.7032         NaN       NaN       NaN
-consequence             xgboost     isotonic   0.4530       0.6716      0.0863    0.2966    0.0840
-consequence             xgboost        platt   0.4832       0.6707      0.0847    0.2983    0.0815
-consequence             xgboost uncalibrated   0.5731       0.6952         NaN       NaN       NaN
-   severity            lightgbm     isotonic   0.6810       0.8245      0.0372    0.1205    0.0234
-   severity            lightgbm        platt   0.7102       0.8217      0.0378    0.1336    0.0263
-   severity            lightgbm uncalibrated   0.7162       0.8196         NaN       NaN       NaN
-   severity logistic_regression     isotonic   0.6304       0.7552      0.0426    0.1430    0.0164
-   severity logistic_regression        platt   0.5895       0.7564      0.0448    0.1572    0.0309
-   severity logistic_regression uncalibrated   0.6508       0.7575         NaN       NaN       NaN
-   severity       random_forest     isotonic   0.6859       0.8012      0.0383    0.1217    0.0163
-   severity       random_forest        platt   0.6868       0.8006      0.0386    0.1335    0.0240
-   severity       random_forest uncalibrated   0.6743       0.8067         NaN       NaN       NaN
-   severity             xgboost     isotonic   0.6837       0.8244      0.0370    0.1190    0.0225
-   severity             xgboost        platt   0.6868       0.8211      0.0385    0.1413    0.0288
-   severity             xgboost uncalibrated   0.7107       0.8202         NaN       NaN       NaN
-        szz            lightgbm     isotonic   0.0000       0.2481      0.0110    0.0481    0.0045
-        szz            lightgbm        platt   0.0000       0.2419      0.0113    0.0569    0.0049
-        szz            lightgbm uncalibrated   0.3238       0.2640         NaN       NaN       NaN
-        szz logistic_regression     isotonic   0.0000       0.1931      0.0114    0.0528    0.0103
-        szz logistic_regression        platt   0.0000       0.1971      0.0114    0.0525    0.0044
-        szz logistic_regression uncalibrated   0.1081       0.2134         NaN       NaN       NaN
-        szz       random_forest     isotonic   0.0000       0.2306      0.0110    0.0470    0.0023
-        szz       random_forest        platt   0.0125       0.2458      0.0111    0.0530    0.0057
-        szz       random_forest uncalibrated   0.0982       0.2801         NaN       NaN       NaN
-        szz             xgboost     isotonic   0.0000       0.2413      0.0109    0.0462    0.0037
-        szz             xgboost        platt   0.0000       0.2452      0.0112    0.0556    0.0052
-        szz             xgboost uncalibrated   0.1864       0.2759         NaN       NaN       NaN
-
-[Stage 7c] Elapsed: 1545.5s
-[Stage 7c] Complete.
+[Stage 7] Elapsed: 36.4s
+[Stage 7] Complete.

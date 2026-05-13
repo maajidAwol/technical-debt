@@ -1,64 +1,25 @@
-[Stage 7b] Trials per (variant, model): 30
-[Stage 7b] Inner CV folds              : 5
-[Stage 7b] Outer CV folds              : 10
-[Stage 7b] Variants                    : ('consequence', 'severity', 'szz')
-[Stage 7b] Models                      : ['logistic_regression', 'decision_tree', 'random_forest', 'xgboost', 'lightgbm']
+[Stage 7b] Models       : ['logistic_regression', 'random_forest', 'xgboost', 'lightgbm']
+[Stage 7b] Trials/model : 30 (LR uses grid search)
+[Stage 7b] Inner folds  : 5
+[Stage 7b] Objective    : PR-AUC (Saito & Rehmsmeier 2015)
+[Stage 7b] Dataset      : rows=12,449  feats=27  positives=2126
 
-[Stage 7b] variant=consequence  rows=23,911  feats=81  positives=3533 (14.78%)
-   logistic_regression   best_PR_AUC=0.515  trials=30/30  (257.07s tune)
-   logistic_regression   -> outer CV  F1=0.488  PR_AUC=0.517  MCC=0.399  CE@20=0.595  (286.7s total)
-   decision_tree         best_PR_AUC=0.552  trials=30/30  (47.19s tune)
-   decision_tree         -> outer CV  F1=0.515  PR_AUC=0.556  MCC=0.434  CE@20=0.636  (51.0s total)
-   random_forest         best_PR_AUC=0.697  trials=30/30  (375.21s tune)
-   random_forest         -> outer CV  F1=0.580  PR_AUC=0.700  MCC=0.542  CE@20=0.745  (414.4s total)
-   xgboost               best_PR_AUC=0.713  trials=30/30  (250.97s tune)
-   xgboost               -> outer CV  F1=0.604  PR_AUC=0.716  MCC=0.566  CE@20=0.746  (272.2s total)
-   lightgbm              best_PR_AUC=0.709  trials=30/30  (342.8s tune)
-   lightgbm              -> outer CV  F1=0.645  PR_AUC=0.712  MCC=0.582  CE@20=0.746  (370.1s total)
+[Stage 7b] Tuning logistic_regression ...
+   best_pr_auc=0.8493  trials=5  method=grid_search  elapsed=4.68s
+   best_params: {'C': 100.0}
 
-[Stage 7b] variant=severity     rows=23,911  feats=75  positives=2305 (9.64%)
-   logistic_regression   best_PR_AUC=0.758  trials=30/30  (136.55s tune)
-   logistic_regression   -> outer CV  F1=0.650  PR_AUC=0.759  MCC=0.628  CE@20=0.924  (151.3s total)
-   decision_tree         best_PR_AUC=0.767  trials=30/30  (26.79s tune)
-   decision_tree         -> outer CV  F1=0.609  PR_AUC=0.765  MCC=0.605  CE@20=0.946  (29.0s total)
-   random_forest         best_PR_AUC=0.808  trials=30/30  (274.76s tune)
-   random_forest         -> outer CV  F1=0.697  PR_AUC=0.811  MCC=0.674  CE@20=0.968  (303.0s total)
-   xgboost               best_PR_AUC=0.827  trials=30/30  (214.71s tune)
-   xgboost               -> outer CV  F1=0.712  PR_AUC=0.828  MCC=0.690  CE@20=0.973  (234.0s total)
-   lightgbm              best_PR_AUC=0.826  trials=30/30  (322.92s tune)
-   lightgbm              -> outer CV  F1=0.721  PR_AUC=0.831  MCC=0.698  CE@20=0.967  (355.9s total)
+[Stage 7b] Tuning random_forest ...
+   best_pr_auc=0.9400  trials=30  method=optuna_tpe  elapsed=131.36s
+   best_params: {'n_estimators': 400, 'max_depth': 21, 'min_samples_split': 5, 'max_features': 'sqrt'}
 
-[Stage 7b] variant=szz          rows=23,911  feats=79  positives=297 (1.24%)
-   logistic_regression   best_PR_AUC=0.206  trials=30/30  (405.19s tune)
-   logistic_regression   -> outer CV  F1=0.111  PR_AUC=0.229  MCC=0.193  CE@20=0.866  (444.4s total)
-   decision_tree         best_PR_AUC=0.162  trials=30/30  (31.44s tune)
-   decision_tree         -> outer CV  F1=0.144  PR_AUC=0.146  MCC=0.203  CE@20=0.683  (33.8s total)
-   random_forest         best_PR_AUC=0.256  trials=30/30  (166.3s tune)
-   random_forest         -> outer CV  F1=0.188  PR_AUC=0.273  MCC=0.236  CE@20=0.956  (176.1s total)
-   xgboost               best_PR_AUC=0.271  trials=30/30  (156.59s tune)
-   xgboost               -> outer CV  F1=0.118  PR_AUC=0.272  MCC=0.159  CE@20=0.953  (165.3s total)
-   lightgbm              best_PR_AUC=0.285  trials=30/30  (275.97s tune)
-   lightgbm              -> outer CV  F1=0.313  PR_AUC=0.298  MCC=0.312  CE@20=0.933  (297.5s total)
+[Stage 7b] Tuning xgboost ...
+   best_pr_auc=0.9453  trials=30  method=optuna_tpe  elapsed=63.61s
+   best_params: {'n_estimators': 400, 'max_depth': 8, 'learning_rate': 0.05124306211291101, 'subsample': 0.8686806241102831, 'colsample_bytree': 0.790938208564768}
 
-[Stage 7b] Tuned params -> C:\Users\maaji\Desktop\technical-debt\results\tables\tuned_params.json
+[Stage 7b] Tuning lightgbm ...
+   best_pr_auc=0.9430  trials=30  method=optuna_tpe  elapsed=195.22s
+   best_params: {'n_estimators': 350, 'num_leaves': 36, 'learning_rate': 0.04025192252635066, 'min_child_samples': 34, 'feature_fraction': 0.6185801650879991}
 
-[Stage 7b] Within-project summary with tuned hyperparameters:
-    variant               model  precision_mean  recall_mean  f1_mean  roc_auc_mean  pr_auc_mean  mcc_mean  ce_at_20_mean
-consequence       decision_tree           0.390        0.761    0.515         0.849        0.556     0.434          0.636
-consequence            lightgbm           0.628        0.664    0.645         0.916        0.712     0.582          0.746
-consequence logistic_regression           0.365        0.739    0.488         0.835        0.517     0.399          0.595
-consequence       random_forest           0.742        0.476    0.580         0.916        0.700     0.542          0.745
-consequence             xgboost           0.752        0.506    0.604         0.918        0.716     0.566          0.746
-   severity       decision_tree           0.447        0.955    0.609         0.964        0.765     0.605          0.946
-   severity            lightgbm           0.619        0.862    0.721         0.977        0.831     0.698          0.967
-   severity logistic_regression           0.520        0.866    0.650         0.962        0.759     0.628          0.924
-   severity       random_forest           0.785        0.629    0.697         0.975        0.811     0.674          0.968
-   severity             xgboost           0.796        0.645    0.712         0.977        0.828     0.690          0.973
-        szz       decision_tree           0.081        0.636    0.144         0.784        0.146     0.203          0.683
-        szz            lightgbm           0.255        0.411    0.313         0.947        0.298     0.312          0.933
-        szz logistic_regression           0.060        0.822    0.111         0.926        0.229     0.193          0.866
-        szz       random_forest           0.506        0.121    0.188         0.944        0.273     0.236          0.956
-        szz             xgboost           0.385        0.070    0.118         0.951        0.272     0.159          0.953
-
-[Stage 7b] Elapsed: 3584.8s
+[Stage 7b] Wrote C:\Users\maaji\Desktop\technical-debt\results\tables\tuned_hyperparameters.csv
+[Stage 7b] Total elapsed: 395.8s
 [Stage 7b] Complete.

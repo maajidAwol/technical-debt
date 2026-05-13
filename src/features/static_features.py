@@ -1,37 +1,29 @@
 """
-Snapshot-aware static feature extraction at (project, basename) granularity.
+Static feature extraction at (project, basename) granularity.
 
-This module consumes the cleaned parquets produced by Stage 3 and emits one
-row per (project, basename) with:
+Emits two of the five feature families (10 features total):
 
-- **Per-basename aggregated SonarQube issue features at snapshot ``t``**
-  (counts by severity / by type, technical-debt minutes, distinct rules).
-  These are the "static code features" of Proposal Table 1 at the
-  granularity imposed by the dataset (see RESEARCH_LOG.md 2026-04-23).
-- **Project-level context features from the most recent
-  ``SONAR_ANALYSIS`` with ``analysis_date <= t``**, replicated for every
-  basename in the project. These capture project-wide maintainability
-  indicators (NCLOC, COMPLEXITY, SQALE_INDEX, COVERAGE, etc.) as the
-  macro-context each file lives in.
-- **Size proxy from Git history**: cumulative ``LINES_ADDED`` minus
-  ``LINES_REMOVED`` up to ``t`` (floored at zero) - a file-level
-  substitute for per-file NCLOC that the dataset does not store.
+Family 1 - Size / Complexity (project-level context replicated per file):
+    ncloc, complexity, cognitive_complexity, functions, classes
 
-Columns that could leak the severity-baseline label (``n_blocker``,
-``n_critical``, etc.) are computed here but the dataset-build stage
-selectively drops them when training on the severity variant.
+Family 2 - Static Debt (per-file aggregates over SONAR_ISSUES at t):
+    n_code_smells, n_bugs, total_debt_minutes, issue_density,
+    duplicated_lines_density
 
-References
-----------
-- Lenarduzzi, V., et al. (2019). The Technical Debt Dataset. PROMISE.
-- Tsoukalas, D., et al. (2020). Machine learning for technical debt
-  identification. IEEE TSE.
+``ncloc`` and ``duplicated_lines_density`` come from the most recent
+SONAR_ANALYSIS at or before ``t`` (project-level snapshot). All issue
+aggregates use ``CREATION_DATE <= t`` and respect the issue's
+``CLOSE_DATE`` window (open at snapshot).
+
+Leakage note: raw severity counts (n_blocker, n_critical, etc.) are
+deliberately NOT emitted - the dual-signal label S1 keys on
+BLOCKER/CRITICAL counts, so including them as features would leak the
+label. See assertion in scripts/06_build_dataset.py.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -41,190 +33,59 @@ from src.data.szz import basename_universe_at_snapshot, open_issues_at_snapshot 
 
 
 # ---------------------------------------------------------------------------
-# Issue-based static features per basename at snapshot
+# Family 2 - Static Debt (per-file from SONAR_ISSUES)
 # ---------------------------------------------------------------------------
-def sonar_issue_features_at_snapshot(
+def _issue_aggregates_at_snapshot(
     sonar_issues: pd.DataFrame,
     project_id: str,
     snapshot: pd.Timestamp,
 ) -> pd.DataFrame:
-    """Aggregate SonarQube issues open at ``snapshot`` into per-basename features.
-
-    Columns produced (all non-negative integers or floats):
-    - ``n_issues_open``
-    - ``n_blocker``, ``n_critical``, ``n_major``, ``n_minor``, ``n_info``
-    - ``n_code_smell``, ``n_bug``, ``n_vulnerability``
-    - ``total_debt_minutes`` - sum of ``DEBT`` (minutes of remediation effort)
-    - ``total_effort_minutes`` - sum of ``EFFORT`` (if present)
-    - ``n_distinct_rules``
-    - ``max_severity_rank`` in ``{0..4}`` where INFO=0 and BLOCKER=4
-    """
+    """Per-basename counts of CODE_SMELL, BUG, and total debt minutes."""
     open_iss = open_issues_at_snapshot(sonar_issues, project_id, snapshot)
+    cols = ["basename", "n_code_smells", "n_bugs", "total_debt_minutes", "n_issues_open"]
     if open_iss.empty:
-        return pd.DataFrame(
-            columns=[
-                "basename",
-                "n_issues_open",
-                "n_blocker",
-                "n_critical",
-                "n_major",
-                "n_minor",
-                "n_info",
-                "n_code_smell",
-                "n_bug",
-                "n_vulnerability",
-                "total_debt_minutes",
-                "total_effort_minutes",
-                "n_distinct_rules",
-                "max_severity_rank",
-            ]
-        )
+        return pd.DataFrame(columns=cols)
 
-    rank_map = {"INFO": 0, "MINOR": 1, "MAJOR": 2, "CRITICAL": 3, "BLOCKER": 4}
-    open_iss = open_iss.assign(_rank=open_iss["SEVERITY"].map(rank_map).fillna(0).astype("int64"))
+    issue_type = open_iss["TYPE"].astype(str).str.upper()
+    smell_mask = issue_type == "CODE_SMELL"
+    bug_mask = issue_type == "BUG"
 
-    # Severity counts via pivot
-    sev = (
-        open_iss.pivot_table(
-            index="basename", columns="SEVERITY", values="ISSUE_KEY", aggfunc="count", fill_value=0
-        )
-        .rename(
-            columns={
-                "BLOCKER": "n_blocker",
-                "CRITICAL": "n_critical",
-                "MAJOR": "n_major",
-                "MINOR": "n_minor",
-                "INFO": "n_info",
-            }
-        )
-    )
-    for col in ("n_blocker", "n_critical", "n_major", "n_minor", "n_info"):
-        if col not in sev.columns:
-            sev[col] = 0
+    n_smells = open_iss.loc[smell_mask].groupby("basename").size().rename("n_code_smells")
+    n_bugs = open_iss.loc[bug_mask].groupby("basename").size().rename("n_bugs")
+    debt = open_iss.groupby("basename")["DEBT"].sum(min_count=1).rename("total_debt_minutes")
+    n_open = open_iss.groupby("basename").size().rename("n_issues_open")
 
-    # Type counts via pivot
-    typ = (
-        open_iss.pivot_table(
-            index="basename", columns="TYPE", values="ISSUE_KEY", aggfunc="count", fill_value=0
-        )
-        .rename(
-            columns={
-                "CODE_SMELL": "n_code_smell",
-                "BUG": "n_bug",
-                "VULNERABILITY": "n_vulnerability",
-            }
-        )
-    )
-    for col in ("n_code_smell", "n_bug", "n_vulnerability"):
-        if col not in typ.columns:
-            typ[col] = 0
-
-    agg = open_iss.groupby("basename").agg(
-        n_issues_open=("ISSUE_KEY", "count"),
-        total_debt_minutes=("DEBT", "sum"),
-        total_effort_minutes=("EFFORT", "sum"),
-        n_distinct_rules=("RULE", "nunique"),
-        max_severity_rank=("_rank", "max"),
-    )
-
-    out = agg.join(sev).join(typ).reset_index()
-    for c in (
-        "n_blocker",
-        "n_critical",
-        "n_major",
-        "n_minor",
-        "n_info",
-        "n_code_smell",
-        "n_bug",
-        "n_vulnerability",
-        "n_issues_open",
-        "n_distinct_rules",
-        "max_severity_rank",
-    ):
-        out[c] = out[c].fillna(0).astype("int64")
-    for c in ("total_debt_minutes", "total_effort_minutes"):
-        out[c] = out[c].fillna(0.0).astype(float)
+    out = pd.concat([n_smells, n_bugs, debt, n_open], axis=1).reset_index()
+    out["n_code_smells"] = out["n_code_smells"].fillna(0).astype("int64")
+    out["n_bugs"] = out["n_bugs"].fillna(0).astype("int64")
+    out["n_issues_open"] = out["n_issues_open"].fillna(0).astype("int64")
+    out["total_debt_minutes"] = out["total_debt_minutes"].fillna(0.0).astype(float)
     return out
 
 
 # ---------------------------------------------------------------------------
-# Git-derived pseudo size at snapshot
+# Family 1 - Size / Complexity (project-level context at t)
 # ---------------------------------------------------------------------------
-def git_pseudo_size_at_snapshot(
-    changes: pd.DataFrame,
-    project_id: str,
-    snapshot: pd.Timestamp,
-) -> pd.DataFrame:
-    """Cumulative added - removed lines up to snapshot, floored at zero.
-
-    A file-level approximation of current NCLOC when true per-file LOC is not
-    available in the dataset. See Proposal 3.3 and thesis Threats to
-    Construct Validity.
-    """
-    t = snapshot
-    if t.tz is None:
-        t = t.tz_localize("UTC")
-    ch = changes[changes["PROJECT_ID"] == project_id]
-    ch = ch[ch["DATE"] <= t]
-    if ch.empty:
-        return pd.DataFrame(columns=["basename", "pseudo_ncloc_at_t"])
-    g = ch.groupby("basename").agg(
-        _add_sum=("LINES_ADDED", "sum"),
-        _rem_sum=("LINES_REMOVED", "sum"),
-    )
-    g["pseudo_ncloc_at_t"] = (g["_add_sum"] - g["_rem_sum"]).clip(lower=0).astype("int64")
-    return g[["pseudo_ncloc_at_t"]].reset_index()
-
-
-# ---------------------------------------------------------------------------
-# Project-level context features at snapshot
-# ---------------------------------------------------------------------------
-_PROJECT_CONTEXT_COLS: tuple[str, ...] = (
-    # Size
+_PROJECT_LEVEL_METRICS = (
     "ncloc",
-    "lines",
-    "classes",
-    "files",
-    "functions",
-    "statements",
-    "comment_lines",
-    # Complexity
     "complexity",
     "cognitive_complexity",
-    "file_complexity",
-    "function_complexity",
-    "class_complexity",
-    # Density / quality
-    "comment_lines_density",
-    "duplicated_lines",
+    "functions",
+    "classes",
     "duplicated_lines_density",
-    "duplicated_blocks",
-    "duplicated_files",
-    "coverage",
-    "line_coverage",
-    "lines_to_cover",
-    "uncovered_lines",
-    # Technical debt at project scope (structural context - not label leakage)
-    "sqale_index",
-    "sqale_debt_ratio",
-    "sqale_rating",
-    "reliability_rating",
-    "security_rating",
-    "reliability_remediation_effort",
-    "security_remediation_effort",
-    "open_issues",
 )
 
 
-def project_context_at_snapshot(
+def _project_metrics_at_snapshot(
     sonar_measures: pd.DataFrame,
     project_id: str,
     snapshot: pd.Timestamp,
 ) -> dict:
-    """Return project-level SonarQube measures from the latest analysis <= ``t``.
+    """Most recent SONAR_ANALYSIS metrics at or before ``t``.
 
-    Returns an empty dict if no analysis exists before the snapshot (very rare,
-    would indicate a misconfigured project).
+    TD Dataset v2 stores SonarQube measures at project granularity (no
+    per-file COMPONENT column), so the same row is replicated for every
+    basename in the project. Empty dict if no analysis exists before t.
     """
     t = snapshot
     if t.tz is None:
@@ -233,15 +94,12 @@ def project_context_at_snapshot(
     m = m[m["analysis_date"] <= t]
     if m.empty:
         return {}
-    # Take the most recent analysis at or before t
     row = m.sort_values("analysis_date").iloc[-1]
-    out = {f"project_{c}": row.get(c) for c in _PROJECT_CONTEXT_COLS if c in m.columns}
-    out["project_context_analysis_date"] = row["analysis_date"]
-    return out
+    return {c: row.get(c) for c in _PROJECT_LEVEL_METRICS if c in m.columns}
 
 
 # ---------------------------------------------------------------------------
-# Combined static features for a single project
+# Public API
 # ---------------------------------------------------------------------------
 def build_static_features_for_project(
     project_id: str,
@@ -250,56 +108,47 @@ def build_static_features_for_project(
     sonar_measures: pd.DataFrame,
     changes: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Assemble the full per-basename static feature row for one project."""
+    """Return ``(project_id, basename, <10 static features>)`` for one project."""
     universe = basename_universe_at_snapshot(changes, project_id, snapshot)
     if universe.empty:
-        return universe
+        return universe.assign(
+            **{
+                "ncloc": 0.0,
+                "complexity": 0.0,
+                "cognitive_complexity": 0.0,
+                "functions": 0.0,
+                "classes": 0.0,
+                "n_code_smells": 0,
+                "n_bugs": 0,
+                "total_debt_minutes": 0.0,
+                "issue_density": 0.0,
+                "duplicated_lines_density": 0.0,
+            }
+        )
 
-    issue_feats = sonar_issue_features_at_snapshot(sonar_issues, project_id, snapshot)
-    size_feats = git_pseudo_size_at_snapshot(changes, project_id, snapshot)
-    ctx = project_context_at_snapshot(sonar_measures, project_id, snapshot)
+    issue_feats = _issue_aggregates_at_snapshot(sonar_issues, project_id, snapshot)
+    ctx = _project_metrics_at_snapshot(sonar_measures, project_id, snapshot)
 
     df = universe.merge(issue_feats, on="basename", how="left")
-    df = df.merge(size_feats, on="basename", how="left")
+    for c in ("n_code_smells", "n_bugs", "n_issues_open"):
+        df[c] = df[c].fillna(0).astype("int64")
+    df["total_debt_minutes"] = df["total_debt_minutes"].fillna(0.0).astype(float)
 
-    # Fill issue-count NaNs (files with zero issues) with zero
-    issue_fill_zero = [
-        "n_issues_open",
-        "n_blocker",
-        "n_critical",
-        "n_major",
-        "n_minor",
-        "n_info",
-        "n_code_smell",
-        "n_bug",
-        "n_vulnerability",
-        "n_distinct_rules",
-        "max_severity_rank",
-    ]
-    for c in issue_fill_zero:
-        if c in df.columns:
-            df[c] = df[c].fillna(0).astype("int64")
-    for c in ("total_debt_minutes", "total_effort_minutes"):
-        if c in df.columns:
-            df[c] = df[c].fillna(0.0).astype(float)
-    if "pseudo_ncloc_at_t" in df.columns:
-        df["pseudo_ncloc_at_t"] = df["pseudo_ncloc_at_t"].fillna(0).astype("int64")
+    # Project-level metrics replicated per file (NaN -> 0.0 if no analysis <= t).
+    for col in ("ncloc", "complexity", "cognitive_complexity", "functions", "classes",
+                "duplicated_lines_density"):
+        val = ctx.get(col)
+        df[col] = float(val) if val is not None and not pd.isna(val) else 0.0
 
-    # Derived ratios
+    # Issue density (per spec). Guard ncloc == 0.
+    ncloc_safe = df["ncloc"].replace(0, np.nan)
     df["issue_density"] = np.where(
-        df.get("pseudo_ncloc_at_t", 0) > 0,
-        df["n_issues_open"] / df["pseudo_ncloc_at_t"].replace(0, np.nan),
-        0.0,
-    ).astype(float)
-    df["debt_per_loc"] = np.where(
-        df.get("pseudo_ncloc_at_t", 0) > 0,
-        df["total_debt_minutes"] / df["pseudo_ncloc_at_t"].replace(0, np.nan),
+        df["ncloc"] > 0,
+        (df["n_issues_open"] / ncloc_safe).fillna(0.0),
         0.0,
     ).astype(float)
 
-    # Attach project-level context (same for every row of this project)
-    for k, v in ctx.items():
-        df[k] = v
-
+    # Drop helper column not in the 27 features.
+    df = df.drop(columns=["n_issues_open"])
     df["snapshot_date"] = snapshot
     return df

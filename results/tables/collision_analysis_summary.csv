@@ -1,5 +1,0 @@
-,f1,f1,f1,pr_auc,pr_auc,pr_auc,ce_at_20,ce_at_20,ce_at_20
-,mean,std,count,mean,std,count,mean,std,count
-collision_group,,,,,,,,,
-high,0.4319,0.1615,11,0.4841,0.1045,11,0.4875,0.0955,11
-low,0.3709,0.1663,11,0.4342,0.1434,11,0.4818,0.1037,11

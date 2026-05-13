@@ -56,6 +56,19 @@ def main() -> None:
     df.to_parquet(out_parquet, index=False)
     df.to_csv(out_csv, index=False)
 
+    # Corpus summary: one row per eligible project for the thesis tables.
+    corpus = df[df["eligible"]].copy()
+    corpus_summary = pd.DataFrame(
+        {
+            "project_id": corpus["project_id"],
+            "snapshot_date": corpus["snapshot_date"].dt.strftime("%Y-%m-%d"),
+            "n_pre_commits": corpus["pre_snapshot_commits"].astype("int64"),
+            "n_post_commits": corpus["post_snapshot_commits"].astype("int64"),
+            "n_java_files": corpus["distinct_files_pre"].astype("int64"),
+        }
+    ).sort_values("project_id").reset_index(drop=True)
+    corpus_summary.to_csv(TABLES_DIR / "corpus_summary.csv", index=False)
+
     eligible = df[df["eligible"]].copy()
     excluded = df[~df["eligible"]].copy()
 

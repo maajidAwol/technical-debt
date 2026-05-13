@@ -1,22 +1,21 @@
 """
-Stage 7 - Within-project stratified 10-fold cross-validation across all
-three label variants and all configured models.
+Stage 7 - Within-project stratified 10-fold CV with threshold optimisation.
 
-Writes:
+Two modes:
 
-- ``results/tables/within_project_folds.csv`` - one row per
-  ``(variant, model, fold)`` with the full metric battery.
-- ``results/tables/within_project_summary.csv`` - mean +/- std per
-  ``(variant, model)``.
+- ``python scripts/07_train.py``            -> Stage A (default hyperparams)
+    Writes ``results/tables/default_cv_results.csv``.
 
-Run
----
-.. code-block:: bash
+- ``python scripts/07_train.py --tuned``    -> Stage C (tuned hyperparams)
+    Reads tuned params from ``results/tables/tuned_hyperparameters.csv``
+    and rewrites ``results/tables/within_project_results.csv``.
 
-    .\\venv\\Scripts\\python.exe scripts/07_train.py
+Both modes use threshold optimisation per fold (see Part 6 of the spec).
 """
 from __future__ import annotations
 
+import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -24,118 +23,75 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from config import CV_FOLDS, LABEL_VARIANTS, TABLES_DIR  # noqa: E402
-from src.analysis.significance import (  # noqa: E402
-    attach_ci_to_summary,
-    bootstrap_confidence_intervals,
-    pairwise_wilcoxon,
-)
+from config import CV_FOLDS, MODEL_ORDER, TABLES_DIR  # noqa: E402
 from src.models.train import (  # noqa: E402
     fold_results_to_frame,
-    load_variant_matrix,
+    load_dataset,
     stratified_kfold_cv,
-    summarize,
+    summarize_by_model,
 )
 
 
-MODELS = [
-    "logistic_regression",
-    "decision_tree",
-    "random_forest",
-    "xgboost",
-    "lightgbm",
-    "svm",
-    # SVM activated 2026-04-27 to satisfy the proposal Section 3.5
-    # commitment to compare DT/RF/SVM/GBM. RBF-SVM with class_weight
-    # balancing on the within-project 10-fold CV completes in ~95 s
-    # per variant - manageable here. Note: SVM is *deliberately
-    # omitted* from scripts/08_lopo.py because 22-fold LOPO would
-    # cost ~65 min just for SVM (audit refinement #3).
-]
+def _load_tuned_params() -> dict[str, dict]:
+    """Return {model_name -> best_params dict} from the tuning CSV."""
+    path = TABLES_DIR / "tuned_hyperparameters.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Missing {path}. Run scripts/07b_tune.py before --tuned mode."
+        )
+    df = pd.read_csv(path)
+    out: dict[str, dict] = {}
+    for _, row in df.iterrows():
+        out[row["model"]] = json.loads(row["best_params_json"])
+    return out
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tuned", action="store_true", help="Use tuned hyperparams from 07b_tune.py")
+    args = parser.parse_args()
+
     t0 = time.time()
-    all_folds = []
+    print(f"[Stage 7] Mode      : {'tuned' if args.tuned else 'default'}")
+    print(f"[Stage 7] CV folds  : {CV_FOLDS}")
+    print(f"[Stage 7] Models    : {list(MODEL_ORDER)}")
 
-    print(f"[Stage 7] CV folds: {CV_FOLDS}")
-    print(f"[Stage 7] Variants: {LABEL_VARIANTS}")
-    print(f"[Stage 7] Models:   {MODELS}")
+    X, y, _ = load_dataset()
+    pos_rate = 100 * float(y.mean())
+    print(f"[Stage 7] Dataset   : rows={len(X):,}  feats={X.shape[1]}  positives={int(y.sum())} ({pos_rate:.2f}%)")
 
-    # Wipe stale fold-level predictions so a re-run doesn't accumulate
-    # rows from earlier configurations.
-    pred_path = TABLES_DIR / "within_project_predictions.parquet"
-    if pred_path.exists():
-        pred_path.unlink()
-
-    for variant in LABEL_VARIANTS:
-        X, y, proj = load_variant_matrix(variant)
-        pos_rate = 100 * y.mean()
+    tuned_params = _load_tuned_params() if args.tuned else {}
+    all_folds: list[pd.DataFrame] = []
+    for model_name in MODEL_ORDER:
+        t1 = time.time()
+        params = tuned_params.get(model_name) if args.tuned else None
+        results = stratified_kfold_cv(model_name, X, y, n_splits=CV_FOLDS, params=params)
+        if not results:
+            print(f"   {model_name:<22}  SKIPPED (estimator unavailable)")
+            continue
+        df = fold_results_to_frame(results)
+        means = df[["f1", "roc_auc", "pr_auc", "ce_at_20"]].mean()
         print(
-            f"\n[Stage 7] variant={variant:<11}  rows={len(X):,}  "
-            f"feats={X.shape[1]}  positives={int(y.sum())} ({pos_rate:.2f}%)"
+            f"   {model_name:<22}  "
+            f"F1={means['f1']:.3f}  "
+            f"ROC={means['roc_auc']:.3f}  "
+            f"PR={means['pr_auc']:.3f}  "
+            f"CE@20={means['ce_at_20']:.3f}  "
+            f"({time.time() - t1:.1f}s)"
         )
-        for model_name in MODELS:
-            t1 = time.time()
-            results = stratified_kfold_cv(
-                variant,
-                model_name,
-                X,
-                y,
-                n_splits=CV_FOLDS,
-                persist_predictions=True,
-                project_id=proj,
-            )
-            if not results:
-                print(f"   {model_name:<20}  SKIPPED (not installed)")
-                continue
-            df = fold_results_to_frame(results)
-            means = df[["precision", "recall", "f1", "roc_auc", "pr_auc", "mcc", "ce_at_20"]].mean()
-            print(
-                f"   {model_name:<20}  "
-                f"F1={means['f1']:.3f}  "
-                f"ROC_AUC={means['roc_auc']:.3f}  "
-                f"PR_AUC={means['pr_auc']:.3f}  "
-                f"MCC={means['mcc']:.3f}  "
-                f"CE@20={means['ce_at_20']:.3f}  "
-                f"({time.time() - t1:.1f}s)"
-            )
-            all_folds.append(df)
+        all_folds.append(df)
 
     fold_df = pd.concat(all_folds, ignore_index=True)
-    fold_df.to_csv(TABLES_DIR / "within_project_folds.csv", index=False)
-    summary = summarize(fold_df)
-    summary.to_csv(TABLES_DIR / "within_project_summary.csv", index=False)
+    out_name = "within_project_results.csv" if args.tuned else "default_cv_results.csv"
+    fold_df.to_csv(TABLES_DIR / out_name, index=False)
+    print(f"\n[Stage 7] Wrote {TABLES_DIR / out_name}  ({len(fold_df)} rows)")
 
-    # Bootstrap 95% CIs (10000 resamples) and a side-by-side
-    # _with_ci.csv variant for convenient pivoting downstream.
-    ci_df = bootstrap_confidence_intervals(fold_df)
-    ci_df.to_csv(TABLES_DIR / "within_project_ci.csv", index=False)
-    summary_with_ci = attach_ci_to_summary(summary, ci_df)
-    summary_with_ci.to_csv(TABLES_DIR / "within_project_summary_with_ci.csv", index=False)
-
-    # Wilcoxon paired tests on per-fold F1 + PR-AUC, Bonferroni
-    # corrected per variant (15 pairs at 6 models).
-    sig_rows = []
-    for metric in ("f1", "pr_auc"):
-        sig_rows.append(
-            pairwise_wilcoxon(
-                fold_df,
-                pair_within="variant",
-                contrast_col="model",
-                metric=metric,
-                paired_on=("fold",),
-            )
-        )
-    pairwise_df = pd.concat(sig_rows, ignore_index=True)
-    pairwise_df.to_csv(TABLES_DIR / "pairwise_significance.csv", index=False)
-
-    print("\n[Stage 7] Within-project summary (mean across folds):")
-    metric_mean_cols = [c for c in summary.columns if c.endswith("_mean")]
-    pretty = summary[["variant", "model"] + metric_mean_cols].copy()
-    pretty[metric_mean_cols] = pretty[metric_mean_cols].round(3)
+    summary = summarize_by_model(fold_df)
+    print("\n[Stage 7] Per-model summary (mean across folds):")
     with pd.option_context("display.width", 220, "display.max_rows", None):
-        print(pretty.to_string(index=False))
+        cols_show = ["model", "f1_mean", "roc_auc_mean", "pr_auc_mean", "ce_at_20_mean"]
+        cols_show = [c for c in cols_show if c in summary.columns]
+        print(summary[cols_show].round(3).to_string(index=False))
 
     print(f"\n[Stage 7] Elapsed: {time.time() - t0:.1f}s")
     print("[Stage 7] Complete.")

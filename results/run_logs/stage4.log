@@ -1,0 +1,76 @@
+[Stage 4] Surrogate window     : 6 months
+[Stage 4] Theoretical baseline : {'S1_severity': 0.3, 'S4_bugfix': 0.25, 'S2_debt': 0.2, 'S5_churn': 0.15, 'S3_smells': 0.05, 'S6_contributors': 0.05}
+[Stage 4] Eligible projects    : 22
+[Stage 4] Loading cleaned parquets ...
+   commits      :    103,905
+   changes      :    301,679
+   sonar_issues :    564,423
+
+[Stage 4] Computing per-project signals ...
+   org.apache:archiva                   N=   856  S1=  88  S4= 157  surrogate=   41
+   org.apache:batik                     N=  1277  S1= 128  S4= 154  surrogate=  226
+   org.apache:bcel                      N=   405  S1=  49  S4= 101  surrogate=   11
+   org.apache:cayenne                   N=   962  S1= 189  S4= 173  surrogate=   27
+   org.apache:cocoon                    N=  2794  S1=  70  S4= 678  surrogate=  104
+   org.apache:codec                     N=    58  S1=   1  S4=   8  surrogate=   32
+   org.apache:commons-cli               N=    67  S1=   4  S4=  14  surrogate=    6
+   org.apache:commons-fileupload        N=    28  S1=   3  S4=   7  surrogate=   14
+   org.apache:commons-jelly             N=   176  S1=   0  S4=  20  surrogate=   23
+   org.apache:commons-jexl              N=   138  S1=   0  S4=  22  surrogate=   12
+   org.apache:configuration             N=   226  S1=  17  S4=  40  surrogate=    5
+   org.apache:daemon                    N=    15  S1=   6  S4=   2  surrogate=    5
+   org.apache:dbcp                      N=    57  S1=  23  S4=  13  surrogate=   50
+   org.apache:digester                  N=   162  S1=   0  S4=  24  surrogate=   10
+   org.apache:felix                     N=  2084  S1= 569  S4= 370  surrogate=   68
+   org.apache:hive                      N=  2796  S1= 602  S4= 331  surrogate=   71
+   org.apache:httpclient                N=   545  S1=  11  S4=  41  surrogate=    0
+   org.apache:httpcore                  N=   608  S1=   9  S4= 150  surrogate=    0
+   org.apache:net                       N=   195  S1=  39  S4=  33  surrogate=    6
+   org.apache:thrift                    N=    55  S1=  12  S4=  12  surrogate=    4
+   org.apache:vfs                       N=   269  S1=  36  S4=  63  surrogate=   10
+   org.apache:zookeeper                 N=   196  S1=  50  S4=  38  surrogate=   14
+
+[Stage 4] Deriving empirical weights via point-biserial ...
+[Stage 4] Empirical weights diverge from theoretical (max diff > 0.05); using empirical.
+[Stage 4] Weights (in use):
+   S1_severity          theoretical=0.30  derived=0.15  chosen=0.15
+   S2_debt              theoretical=0.20  derived=0.15  chosen=0.15
+   S3_smells            theoretical=0.05  derived=0.16  chosen=0.16
+   S4_bugfix            theoretical=0.25  derived=0.23  chosen=0.23
+   S5_churn             theoretical=0.15  derived=0.16  chosen=0.16
+   S6_contributors      theoretical=0.05  derived=0.15  chosen=0.15
+
+[Stage 4] Scoring + thresholding per project ...
+
+[Stage 4] Per-project label statistics:
+                   project_id  n_files  n_positive  positive_rate_pct  n_s1_only  n_s4_only  n_both_static_history  threshold_used  min_positives_satisfied
+           org.apache:archiva      856         113              13.20         19         69                    103             0.5                        1
+             org.apache:batik     1277         176              13.78         30         57                    162             0.5                        1
+              org.apache:bcel      405          73              18.02         11         32                     72             0.5                        1
+           org.apache:cayenne      962         145              15.07         94         76                    130             0.5                        1
+            org.apache:cocoon     2794         464              16.61         18        284                    437             0.5                        1
+             org.apache:codec       58           9              15.52          0          1                      8             0.5                        1
+       org.apache:commons-cli       67          12              17.91          0          3                     12             0.5                        1
+org.apache:commons-fileupload       28           6              21.43          0          1                      6             0.5                        1
+     org.apache:commons-jelly      176          14               7.95          0          5                     14             0.5                        1
+      org.apache:commons-jexl      138          19              13.77          0          9                     17             0.5                        1
+     org.apache:configuration      226          32              14.16          3         15                     31             0.5                        1
+            org.apache:daemon       15           4              26.67          3          1                      4             0.4                        0
+              org.apache:dbcp       57          14              24.56         11          1                     14             0.5                        1
+          org.apache:digester      162          26              16.05          0          4                     26             0.5                        1
+             org.apache:felix     2084         365              17.51        255        115                    342             0.5                        1
+              org.apache:hive     2796         400              14.31        227         78                    385             0.5                        1
+        org.apache:httpclient      545          43               7.89          6          5                     43             0.5                        1
+          org.apache:httpcore      608          97              15.95          1         48                     93             0.5                        1
+               org.apache:net      195          25              12.82         27         11                     24             0.5                        1
+            org.apache:thrift       55          10              18.18          2          4                      9             0.5                        1
+               org.apache:vfs      269          44              16.36         12         21                     40             0.5                        1
+         org.apache:zookeeper      196          35              17.86         21         11                     32             0.5                        1
+
+[Stage 4] Overall positive rate : 15.22%  (2,126 of 13,969)
+[Stage 4] WARNING: 1 project(s) have < 5 positives even at lowest threshold:
+       project_id  n_positive  threshold_used
+org.apache:daemon           4             0.4
+
+[Stage 4] Total elapsed : 2.6s
+[Stage 4] Complete.

@@ -1,69 +1,38 @@
+[Stage 10] Best model: xgboost
+[Stage 10] Best params: {'n_estimators': 400, 'max_depth': 8, 'learning_rate': 0.05124306211291101, 'subsample': 0.8686806241102831, 'colsample_bytree': 0.790938208564768}
+   fig_01 OK -> fig_01_positive_rates.png
+   fig_02 OK -> fig_02_label_signal_breakdown.png
+   fig_03 OK -> fig_03_risk_score_distribution.png
+   fig_04 OK -> fig_04_feature_correlation_heatmap.png
+   fig_05 OK -> fig_05_collision_resolution.png
+   fig_06 OK -> fig_06_model_comparison_f1.png
+   fig_08 OK -> fig_08_lopo_ce20_distribution.png
+   fig_10 OK -> fig_10_ablation.png
+   fig_07 OK -> fig_07_lopo_per_project_f1.png
+   fig_09 OK -> fig_09_threshold_curve.png  (328.8s)
+   fig_11 OK -> fig_11_shap_best_model.png  (18.0s)
 
->>> Stage 10.1 - SHAP + permutation importance
-  - variant: consequence
+[Stage 10] Running pooled LOPO for fig_12 ...
+[Stage 10] Pooled LOPO done (60.6s, 4 models)
+   fig_12 OK -> fig_12_roc_pr_curves.png
 
- 51%|==========          | 2439/4783 [00:11<00:10]       
- 56%|===========         | 2661/4783 [00:12<00:09]       
- 60%|============        | 2886/4783 [00:13<00:08]       
- 65%|=============       | 3108/4783 [00:14<00:07]       
- 70%|==============      | 3351/4783 [00:15<00:06]       
- 75%|===============     | 3575/4783 [00:16<00:05]       
- 79%|================    | 3798/4783 [00:17<00:04]       
- 84%|=================   | 4020/4783 [00:18<00:03]       
- 89%|==================  | 4247/4783 [00:19<00:02]       
- 94%|=================== | 4475/4783 [00:20<00:01]       
- 98%|===================| 4703/4783 [00:21<00:00]           top SHAP: pseudo_ncloc_at_t, days_since_last_change_at_snapshot, cocg_closeness, file_age_days_at_snapshot, cocg_strength_mean
-    top perm: days_since_last_change_at_snapshot, pseudo_ncloc_at_t, cocg_closeness, file_age_days_at_snapshot, cocg_strength_mean
-    -> fig_shap_consequence.png / .pdf
-  - variant: severity
+[Stage 10] Computing permutation importance (4 models, top 10 each) ...
+[Stage 10] Wrote C:\Users\maaji\Desktop\technical-debt\results\tables\feature_importance.csv  (40 rows, 19.8s)
 
- 58%|============        | 2778/4783 [00:11<00:07]       
- 64%|=============       | 3055/4783 [00:12<00:06]       
- 70%|==============      | 3328/4783 [00:13<00:05]       
- 75%|===============     | 3599/4783 [00:14<00:04]       
- 81%|================    | 3879/4783 [00:15<00:03]       
- 87%|=================   | 4150/4783 [00:16<00:02]       
- 93%|=================== | 4426/4783 [00:17<00:01]       
- 98%|===================| 4704/4783 [00:18<00:00]           top SHAP: total_debt_minutes, n_distinct_rules, max_single_commit_churn_pre, n_bug, avg_change_size_pre
-    top perm: total_debt_minutes, n_distinct_rules, n_bug, max_single_commit_churn_pre, n_vulnerability
-    -> fig_shap_severity.png / .pdf
-  - variant: szz
+[Stage 10] Figure generation summary:
+   Generated: 12 / 12
+      fig_01
+      fig_02
+      fig_03
+      fig_04
+      fig_05
+      fig_06
+      fig_07
+      fig_08
+      fig_09
+      fig_10
+      fig_11
+      fig_12
 
- 35%|=======             | 1666/4783 [00:11<00:20]       
- 38%|========            | 1826/4783 [00:12<00:19]       
- 42%|========            | 1988/4783 [00:13<00:18]       
- 45%|=========           | 2151/4783 [00:14<00:17]       
- 48%|==========          | 2314/4783 [00:15<00:16]       
- 52%|==========          | 2472/4783 [00:16<00:14]       
- 55%|===========         | 2632/4783 [00:17<00:13]       
- 58%|============        | 2791/4783 [00:18<00:12]       
- 62%|============        | 2949/4783 [00:19<00:11]       
- 65%|=============       | 3112/4783 [00:20<00:10]       
- 68%|==============      | 3272/4783 [00:21<00:09]       
- 72%|==============      | 3435/4783 [00:22<00:08]       
- 75%|===============     | 3597/4783 [00:23<00:07]       
- 79%|================    | 3758/4783 [00:24<00:06]       
- 82%|================    | 3921/4783 [00:25<00:05]       
- 85%|=================   | 4079/4783 [00:26<00:04]       
- 89%|==================  | 4243/4783 [00:27<00:03]       
- 92%|==================  | 4401/4783 [00:28<00:02]       
- 95%|=================== | 4564/4783 [00:29<00:01]       
- 99%|===================| 4724/4783 [00:30<00:00]           top SHAP: project_function_complexity, days_since_last_change_at_snapshot, pseudo_ncloc_at_t, cocg_strength_sum, file_age_days_at_snapshot
-    top perm: project_function_complexity, days_since_last_change_at_snapshot, pseudo_ncloc_at_t, max_single_commit_churn_pre, cocg_strength_sum
-    -> fig_shap_szz.png / .pdf
-
->>> Stage 10.2 - Global figures
-  - fig_label_agreement_venn
-  - fig_per_project_positive_rates
-  - fig_within_vs_lopo
-  - fig_sensitivity_heatmap
-  - fig_feature_ablation
-  - fig_lopo_per_project
-  - fig_confusion_matrices  (396 per-project rows)
-  - fig_calibration_reliability
-
->>> Stage 10.3 - Render docs/06_results.md + docs/07_discussion.md
-  -> C:\Users\maaji\Desktop\technical-debt\docs\06_results.md
-  -> C:\Users\maaji\Desktop\technical-debt\docs\07_discussion.md
-
-All Stage 10 artefacts written to results/ and docs/.
+[Stage 10] Elapsed: 430.1s
+[Stage 10] Complete.

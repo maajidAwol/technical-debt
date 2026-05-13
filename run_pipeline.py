@@ -62,20 +62,20 @@ class Stage:
 
 # Order matters. Keys are short tags used by --skip / --from / --only.
 PIPELINE: tuple[Stage, ...] = (
+    Stage("0",  "00_clean_workspace.py", "Wipe previous outputs; preserve raw data + source"),
     Stage("1",  "01_inspect_db.py",      "Inspect raw DB schema and counts"),
-    Stage("2",  "02_profile_projects.py","Profile projects and select snapshots"),
-    Stage("3",  "03_clean.py",           "Clean raw tables, drop tests/generated paths"),
-    Stage("4",  "04_label.py",           "Build three label variants"),
-    Stage("5",  "05_features.py",        "Engineer static, historical, graph, prior-defect features"),
-    Stage("6",  "06_build_dataset.py",   "Join features + labels into modelling tables"),
-    Stage("7",  "07_train.py",           "Within-project 10-fold CV, 6 models, persist preds, CIs, Wilcoxon"),
-    Stage("7b", "07b_tune.py",           "Optuna hyperparameter tuning (tree ensembles)", optional=True),
-    Stage("7c", "07c_calibrate.py",      "Probability calibration sweep (Platt, isotonic)", optional=True),
-    Stage("7d", "07d_resample.py",       "SMOTE vs class_weight resampling sweep", optional=True),
-    Stage("7e", "07e_temporal.py",       "Temporal within-project split T1 -> T2", optional=True),
-    Stage("8",  "08_lopo.py",            "Leave-One-Project-Out cross-project CV"),
-    Stage("9",  "09_sensitivity.py",     "Sensitivity grid, feature-family ablation, SHAP, permutation"),
-    Stage("10", "10_report.py",          "Render figures and compose docs/06_results.md, 07_discussion.md"),
+    Stage("2",  "02_profile_projects.py","Profile projects, select snapshots, emit corpus_summary.csv"),
+    Stage("3",  "03_clean.py",           "Clean raw tables, resolve basename collisions"),
+    Stage("4",  "04_label.py",           "Compute dual-signal binary label + derived weights"),
+    Stage("5",  "05_features.py",        "Engineer 27 features in 5 families"),
+    Stage("6",  "06_build_dataset.py",   "Assemble dataset_final.parquet + feature_catalog.csv"),
+    Stage("7a", "07_train.py",           "Within-project 10-fold CV, 4 models, default hyperparams"),
+    Stage("7b", "07b_tune.py",           "Optuna tuning (4 models, 30 trials each, PR-AUC)"),
+    Stage("7c", "07_train.py --tuned",   "Within-project 10-fold CV with tuned hyperparams"),
+    Stage("8",  "08_lopo.py",            "LOPO with similarity weighting + best-model selection"),
+    Stage("9",  "09_ablation.py",        "Feature-family ablation on best model"),
+    Stage("10", "10_report.py",          "Render 12 figures + SHAP + permutation importance"),
+    Stage("11", "11_persist.py",         "Persist best model + scaler + threshold + model card"),
 )
 
 
@@ -125,9 +125,13 @@ def _run_stage(stage: Stage, python: str) -> tuple[int, float]:
     env["PYTHONUNBUFFERED"] = "1"
 
     t0 = time.time()
+    # ``script`` may include CLI args (e.g. "07_train.py --tuned"); split on whitespace.
+    script_parts = stage.script.split()
+    script_path = str(SCRIPTS_DIR / script_parts[0])
+    script_args = script_parts[1:]
     with log_path.open("w", encoding="utf-8") as fout, err_path.open("w", encoding="utf-8") as ferr:
         proc = subprocess.Popen(
-            [python, "-u", str(SCRIPTS_DIR / stage.script)],
+            [python, "-u", script_path, *script_args],
             cwd=PROJECT_ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
