@@ -101,8 +101,8 @@ def _slice_for_project(data: dict[str, pd.DataFrame], pid: str) -> dict[str, pd.
     return out
 
 
-def _one_project(pid: str, t: pd.Timestamp, sliced: dict[str, pd.DataFrame]) -> dict[str, Any]:
-    """Compute all four feature families for a single project.
+def _one_snapshot(pid: str, sid: str, t: pd.Timestamp, sliced: dict[str, pd.DataFrame]) -> dict[str, Any]:
+    """Compute all four feature families for a single (project, snapshot).
 
     Pure function: no shared mutable state, no I/O. Safe to invoke in
     parallel worker processes via joblib.
@@ -120,10 +120,15 @@ def _one_project(pid: str, t: pd.Timestamp, sliced: dict[str, pd.DataFrame]) -> 
     prior_df = build_priordefect_features_for_project(
         pid, t, sliced["commits"], sliced["changes"], sliced["szz"], sliced["jira"]
     )
+    # Tag every emitted frame with the snapshot_id so downstream merges
+    # can key on (project_id, snapshot_id, basename).
+    for df in (static_df, hist_df, graph_df, prior_df):
+        df["snapshot_id"] = sid
     elapsed = time.time() - ts
 
     summary_row = {
         "project_id": pid,
+        "snapshot_id": sid,
         "n_basenames": len(static_df),
         "static_cols": len(static_df.columns),
         "hist_cols": len(hist_df.columns),
@@ -145,17 +150,13 @@ def _one_project(pid: str, t: pd.Timestamp, sliced: dict[str, pd.DataFrame]) -> 
     }
 
     print(
-        f"   done {pid:<35}  N={len(static_df):>6}  "
-        f"static={len(static_df.columns):>3}  "
-        f"hist={len(hist_df.columns):>3}  "
-        f"graph={len(graph_df.columns):>3}  "
-        f"prior={len(prior_df.columns):>3}  "
-        f"({elapsed:.1f}s)",
+        f"   done {pid:<35} [{sid}]  N={len(static_df):>6}  ({elapsed:.1f}s)",
         flush=True,
     )
 
     return {
         "pid": pid,
+        "sid": sid,
         "static": static_df,
         "hist": hist_df,
         "graph": graph_df,
@@ -180,38 +181,41 @@ def main() -> None:
     print(f"   szz            : {len(data['szz']):>10,}", flush=True)
     print(f"   jira           : {len(data['jira']):>10,}", flush=True)
 
-    eligible_sorted = eligible.sort_values("project_id").reset_index(drop=True)
+    eligible_sorted = eligible.sort_values(["project_id", "snapshot_id"]).reset_index(drop=True)
     n_total = len(eligible_sorted)
 
+    # Slice per project once (data does not depend on snapshot_id); reuse
+    # the same slice for every snapshot of that project.
     print("[Stage 5] Pre-slicing data per project ...", flush=True)
-    tasks: list[tuple[str, pd.Timestamp, dict[str, pd.DataFrame]]] = []
+    project_slices: dict[str, dict[str, pd.DataFrame]] = {}
+    for pid in eligible_sorted["project_id"].unique():
+        project_slices[pid] = _slice_for_project(data, pid)
+    # Drop the global frames once all per-project slices are built.
+    del data
+
+    tasks: list[tuple[str, str, pd.Timestamp, dict[str, pd.DataFrame]]] = []
     for _, row in eligible_sorted.iterrows():
         pid = row["project_id"]
+        sid = row["snapshot_id"]
         t = row["snapshot_date"]
-        sliced = _slice_for_project(data, pid)
-        n_pid_changes = len(sliced["changes"])
-        tasks.append((pid, t, sliced))
+        sliced = project_slices[pid]
+        tasks.append((pid, sid, t, sliced))
         print(
-            f"   queued {pid:<35} (snapshot={t:%Y-%m-%d}, "
-            f"pre-snap changes={n_pid_changes:,})",
+            f"   queued {pid:<35} [{sid}] snapshot={t:%Y-%m-%d}",
             flush=True,
         )
-    # Drop the global frames once all per-project slices are built;
-    # the workers no longer need them and this halves peak RAM.
-    del data
 
     print(
         f"[Stage 5] Computing features in parallel "
-        f"(n_jobs={STAGE5_N_JOBS}, n_projects={n_total}) ...",
+        f"(n_jobs={STAGE5_N_JOBS}, n_tasks={n_total}) ...",
         flush=True,
     )
     results = Parallel(n_jobs=STAGE5_N_JOBS, verbose=5)(
-        delayed(_one_project)(pid, t, sliced) for (pid, t, sliced) in tasks
+        delayed(_one_snapshot)(pid, sid, t, sliced) for (pid, sid, t, sliced) in tasks
     )
 
-    # Sort by project_id to make the concatenated outputs deterministic
-    # regardless of worker completion order.
-    results.sort(key=lambda r: r["pid"])
+    # Sort by (project_id, snapshot_id) for deterministic concatenation.
+    results.sort(key=lambda r: (r["pid"], r["sid"]))
 
     static_all = pd.concat([r["static"] for r in results], ignore_index=True)
     hist_all = pd.concat([r["hist"] for r in results], ignore_index=True)

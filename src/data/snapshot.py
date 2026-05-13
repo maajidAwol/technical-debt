@@ -55,10 +55,12 @@ class ProjectSnapshot:
     distinct_authors_pre: int
     eligible: bool
     exclusion_reason: str = ""
+    snapshot_id: str = "t50"  # identifies which percentile-snapshot this is
 
     def to_dict(self) -> dict:
         return {
             "project_id": self.project_id,
+            "snapshot_id": self.snapshot_id,
             "snapshot_date": self.snapshot_date,
             "window_months": self.window_months,
             "window_end": self.window_end,
@@ -222,4 +224,139 @@ def load_snapshots(path: Path) -> pd.DataFrame:
     for col in ("snapshot_date", "window_end", "first_commit", "last_commit"):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], utc=True, errors="coerce")
+    if "snapshot_id" not in df.columns:
+        df["snapshot_id"] = "t50"  # back-compat: single-snapshot datasets
     return df
+
+
+# ---------------------------------------------------------------------------
+# Multi-snapshot (Option C): three snapshots per project at percentiles
+# 0.25, 0.50, 0.75 of master-branch commit dates.
+# ---------------------------------------------------------------------------
+DEFAULT_SNAPSHOT_PERCENTILES = (0.25, 0.50, 0.75)
+SNAPSHOT_ID_FOR_PERCENTILE = {0.25: "t25", 0.50: "t50", 0.75: "t75"}
+
+
+def compute_project_multi_snapshots(
+    conn: sqlite3.Connection,
+    project_id: str,
+    percentiles: tuple[float, ...] = DEFAULT_SNAPSHOT_PERCENTILES,
+    window_months: int = OBSERVATION_WINDOW_MONTHS,
+    min_pre: int = MIN_PRE_SNAPSHOT_COMMITS,
+    min_post: int = MIN_POST_SNAPSHOT_COMMITS,
+) -> list[ProjectSnapshot]:
+    """Compute one ProjectSnapshot per requested percentile for ``project_id``.
+
+    Eligibility is decided **independently per snapshot** under the strict
+    policy (Option C, Q1=a): each snapshot must satisfy
+    ``pre>=min_pre AND post>=min_post`` on its own to be marked eligible.
+    """
+    query = (
+        "SELECT AUTHOR_DATE, COMMIT_HASH, AUTHOR "
+        "FROM GIT_COMMITS "
+        "WHERE PROJECT_ID = ? AND IN_MAIN_BRANCH = 'True' "
+        "ORDER BY AUTHOR_DATE ASC"
+    )
+    commits = pd.read_sql_query(query, conn, params=[project_id])
+    commits["AUTHOR_DATE"] = pd.to_datetime(commits["AUTHOR_DATE"], errors="coerce", utc=True)
+    commits = commits.dropna(subset=["AUTHOR_DATE"]).reset_index(drop=True)
+
+    out: list[ProjectSnapshot] = []
+    if len(commits) == 0:
+        for q in percentiles:
+            sid = SNAPSHOT_ID_FOR_PERCENTILE.get(q, f"t{int(q*100):02d}")
+            out.append(
+                ProjectSnapshot(
+                    project_id=project_id,
+                    snapshot_date=pd.NaT,
+                    window_months=window_months,
+                    first_commit=pd.NaT,
+                    last_commit=pd.NaT,
+                    total_commits=0,
+                    pre_snapshot_commits=0,
+                    post_snapshot_commits=0,
+                    distinct_files_pre=0,
+                    distinct_authors_pre=0,
+                    eligible=False,
+                    exclusion_reason="no_commits",
+                    snapshot_id=sid,
+                )
+            )
+        return out
+
+    first = commits["AUTHOR_DATE"].min()
+    last = commits["AUTHOR_DATE"].max()
+
+    for q in percentiles:
+        sid = SNAPSHOT_ID_FOR_PERCENTILE.get(q, f"t{int(q*100):02d}")
+        snapshot = pd.Timestamp(commits["AUTHOR_DATE"].quantile(q, interpolation="nearest"))
+        window_end = _add_months(snapshot, window_months)
+
+        pre_mask = commits["AUTHOR_DATE"] <= snapshot
+        post_mask = (commits["AUTHOR_DATE"] > snapshot) & (commits["AUTHOR_DATE"] <= window_end)
+        pre_count = int(pre_mask.sum())
+        post_count = int(post_mask.sum())
+
+        if pre_count > 0:
+            pre_hashes = commits.loc[pre_mask, "COMMIT_HASH"].tolist()
+            placeholders = ",".join("?" * len(pre_hashes))
+            file_q = (
+                f"SELECT COUNT(DISTINCT FILE) AS n "
+                f"FROM GIT_COMMITS_CHANGES "
+                f"WHERE PROJECT_ID = ? AND COMMIT_HASH IN ({placeholders})"
+            )
+            distinct_files = pd.read_sql_query(file_q, conn, params=[project_id, *pre_hashes]).iloc[0]["n"]
+            distinct_authors = int(commits.loc[pre_mask, "AUTHOR"].nunique())
+        else:
+            distinct_files = 0
+            distinct_authors = 0
+
+        eligible = pre_count >= min_pre and post_count >= min_post
+        reasons = []
+        if pre_count < min_pre:
+            reasons.append(f"pre<{min_pre}")
+        if post_count < min_post:
+            reasons.append(f"post<{min_post}")
+        reason = ",".join(reasons)
+
+        out.append(
+            ProjectSnapshot(
+                project_id=project_id,
+                snapshot_date=snapshot,
+                window_months=window_months,
+                first_commit=pd.Timestamp(first),
+                last_commit=pd.Timestamp(last),
+                total_commits=int(len(commits)),
+                pre_snapshot_commits=pre_count,
+                post_snapshot_commits=post_count,
+                distinct_files_pre=int(distinct_files),
+                distinct_authors_pre=int(distinct_authors),
+                eligible=bool(eligible),
+                exclusion_reason=reason,
+                snapshot_id=sid,
+            )
+        )
+    return out
+
+
+def compute_all_multi_snapshots(
+    conn: sqlite3.Connection,
+    projects: Optional[list[str]] = None,
+    percentiles: tuple[float, ...] = DEFAULT_SNAPSHOT_PERCENTILES,
+    window_months: int = OBSERVATION_WINDOW_MONTHS,
+) -> pd.DataFrame:
+    """Compute multi-snapshots for every project (or a given list).
+
+    Returns a DataFrame with one row per ``(project_id, snapshot_id)``.
+    """
+    if projects is None:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT PROJECT_ID FROM GIT_COMMITS ORDER BY PROJECT_ID")
+        projects = [r[0] for r in cur.fetchall()]
+
+    rows: list[dict] = []
+    for pid in projects:
+        snaps = compute_project_multi_snapshots(conn, pid, percentiles, window_months)
+        for s in snaps:
+            rows.append(s.to_dict())
+    return pd.DataFrame(rows)

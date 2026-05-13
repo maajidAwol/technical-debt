@@ -1,0 +1,4 @@
+PROJECT_ID,COMMIT_HASH,REFACTORING_TYPE,REFACTORING_DETAIL
+org.apache:archiva,292dbe1bb4323dd299d36b78f37d9c1d55c889f8,Change Attribute Type,Change Attribute Type managedRepositoryHandler : ManagedRepositoryHandler to managedRepositoryHandler : RepositoryHandlerDependencies in class org.apache.archiva.admin.repository.managed.DefaultManagedRepositoryAdmin
+org.apache:archiva,292dbe1bb4323dd299d36b78f37d9c1d55c889f8,Add Attribute Annotation,Add Attribute Annotation @SuppressWarnings(unused) in attribute private managedRepositoryHandler : RepositoryHandlerDependencies from class org.apache.archiva.admin.repository.managed.DefaultManagedRepositoryAdmin
+org.apache:archiva,292dbe1bb4323dd299d36b78f37d9c1d55c889f8,Remove Method Annotation,Remove Method Annotation @SuppressWarnings(unchecked) in method public putRepository(remoteRepositoryConfiguration RemoteRepositoryConfiguration

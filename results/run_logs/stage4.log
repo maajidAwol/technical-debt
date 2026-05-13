@@ -1,76 +1,144 @@
 [Stage 4] Surrogate window     : 6 months
 [Stage 4] Theoretical baseline : {'S1_severity': 0.3, 'S4_bugfix': 0.25, 'S2_debt': 0.2, 'S5_churn': 0.15, 'S3_smells': 0.05, 'S6_contributors': 0.05}
-[Stage 4] Eligible projects    : 22
+[Stage 4] Eligible projects    : 56
 [Stage 4] Loading cleaned parquets ...
-   commits      :    103,905
-   changes      :    301,679
-   sonar_issues :    564,423
+   commits      :    115,365
+   changes      :    334,748
+   sonar_issues :    585,895
 
-[Stage 4] Computing per-project signals ...
-   org.apache:archiva                   N=   856  S1=  88  S4= 157  surrogate=   41
-   org.apache:batik                     N=  1277  S1= 128  S4= 154  surrogate=  226
-   org.apache:bcel                      N=   405  S1=  49  S4= 101  surrogate=   11
-   org.apache:cayenne                   N=   962  S1= 189  S4= 173  surrogate=   27
-   org.apache:cocoon                    N=  2794  S1=  70  S4= 678  surrogate=  104
-   org.apache:codec                     N=    58  S1=   1  S4=   8  surrogate=   32
-   org.apache:commons-cli               N=    67  S1=   4  S4=  14  surrogate=    6
-   org.apache:commons-fileupload        N=    28  S1=   3  S4=   7  surrogate=   14
-   org.apache:commons-jelly             N=   176  S1=   0  S4=  20  surrogate=   23
-   org.apache:commons-jexl              N=   138  S1=   0  S4=  22  surrogate=   12
-   org.apache:configuration             N=   226  S1=  17  S4=  40  surrogate=    5
-   org.apache:daemon                    N=    15  S1=   6  S4=   2  surrogate=    5
-   org.apache:dbcp                      N=    57  S1=  23  S4=  13  surrogate=   50
-   org.apache:digester                  N=   162  S1=   0  S4=  24  surrogate=   10
-   org.apache:felix                     N=  2084  S1= 569  S4= 370  surrogate=   68
-   org.apache:hive                      N=  2796  S1= 602  S4= 331  surrogate=   71
-   org.apache:httpclient                N=   545  S1=  11  S4=  41  surrogate=    0
-   org.apache:httpcore                  N=   608  S1=   9  S4= 150  surrogate=    0
-   org.apache:net                       N=   195  S1=  39  S4=  33  surrogate=    6
-   org.apache:thrift                    N=    55  S1=  12  S4=  12  surrogate=    4
-   org.apache:vfs                       N=   269  S1=  36  S4=  63  surrogate=   10
-   org.apache:zookeeper                 N=   196  S1=  50  S4=  38  surrogate=   14
+[Stage 4] Computing per-(project, snapshot) signals ...
+   org.apache:archiva                  [t25]  N=   856  S1=  43  S4= 209  surrogate=   24
+   org.apache:archiva                  [t50]  N=   856  S1=  88  S4= 157  surrogate=   41
+   org.apache:archiva                  [t75]  N=   856  S1=  92  S4= 169  surrogate=   32
+   org.apache:batik                    [t25]  N=  1277  S1=  74  S4= 142  surrogate=  355
+   org.apache:batik                    [t50]  N=  1277  S1= 128  S4= 154  surrogate=  226
+   org.apache:batik                    [t75]  N=  1277  S1= 185  S4= 274  surrogate=   64
+   org.apache:bcel                     [t50]  N=   405  S1=  49  S4= 101  surrogate=   11
+   org.apache:cayenne                  [t25]  N=   962  S1= 189  S4= 203  surrogate=  118
+   org.apache:cayenne                  [t50]  N=   962  S1= 189  S4= 173  surrogate=   27
+   org.apache:cayenne                  [t75]  N=   962  S1= 189  S4= 222  surrogate=  164
+   org.apache:cocoon                   [t25]  N=  2794  S1=  53  S4= 382  surrogate=  310
+   org.apache:cocoon                   [t50]  N=  2794  S1=  70  S4= 678  surrogate=  104
+   org.apache:cocoon                   [t75]  N=  2794  S1= 537  S4= 397  surrogate=  257
+   org.apache:codec                    [t50]  N=    58  S1=   1  S4=   8  surrogate=   32
+   org.apache:collections              [t25]  N=   525  S1=  12  S4= 123  surrogate=  128
+   org.apache:collections              [t75]  N=   525  S1=  38  S4= 101  surrogate=   21
+   org.apache:commons-cli              [t50]  N=    67  S1=   4  S4=  14  surrogate=    6
+   org.apache:commons-fileupload       [t50]  N=    28  S1=   3  S4=   7  surrogate=   14
+   org.apache:commons-io               [t75]  N=   117  S1=  19  S4=  28  surrogate=   27
+   org.apache:commons-jelly            [t50]  N=   176  S1=   0  S4=  20  surrogate=   23
+   org.apache:commons-jelly            [t75]  N=   176  S1=   0  S4=  24  surrogate=    6
+   org.apache:commons-jexl             [t50]  N=   138  S1=   0  S4=  22  surrogate=   12
+   org.apache:commons-jexl             [t75]  N=   138  S1=  23  S4=  26  surrogate=    2
+   org.apache:configuration            [t25]  N=   226  S1=   7  S4=  48  surrogate=   27
+   org.apache:configuration            [t50]  N=   226  S1=  17  S4=  40  surrogate=    5
+   org.apache:configuration            [t75]  N=   226  S1=  24  S4=  42  surrogate=    4
+   org.apache:daemon                   [t50]  N=    15  S1=   6  S4=   2  surrogate=    5
+   org.apache:dbcp                     [t50]  N=    57  S1=  23  S4=  13  surrogate=   50
+   org.apache:dbcp                     [t75]  N=    57  S1=  23  S4=  12  surrogate=   29
+   org.apache:digester                 [t25]  N=   162  S1=   0  S4=  22  surrogate=    7
+   org.apache:digester                 [t50]  N=   162  S1=   0  S4=  24  surrogate=   10
+   org.apache:digester                 [t75]  N=   162  S1=   0  S4=  24  surrogate=   10
+   org.apache:felix                    [t25]  N=  2084  S1= 569  S4= 277  surrogate=  294
+   org.apache:felix                    [t50]  N=  2084  S1= 569  S4= 370  surrogate=   68
+   org.apache:felix                    [t75]  N=  2084  S1= 569  S4= 412  surrogate=   26
+   org.apache:hive                     [t25]  N=  2796  S1= 491  S4= 243  surrogate=  121
+   org.apache:hive                     [t50]  N=  2796  S1= 602  S4= 331  surrogate=   71
+   org.apache:hive                     [t75]  N=  2796  S1= 602  S4= 301  surrogate=  242
+   org.apache:httpclient               [t25]  N=   545  S1=   2  S4=  28  surrogate=    8
+   org.apache:httpclient               [t50]  N=   545  S1=  11  S4=  41  surrogate=    0
+   org.apache:httpclient               [t75]  N=   545  S1=  23  S4=  57  surrogate=    3
+   org.apache:httpcore                 [t25]  N=   608  S1=   6  S4= 131  surrogate=   11
+   org.apache:httpcore                 [t50]  N=   608  S1=   9  S4= 150  surrogate=    0
+   org.apache:httpcore                 [t75]  N=   608  S1=  36  S4=  75  surrogate=   18
+   org.apache:net                      [t25]  N=   195  S1=  34  S4=  26  surrogate=    1
+   org.apache:net                      [t50]  N=   195  S1=  39  S4=  33  surrogate=    6
+   org.apache:santuario                [t25]  N=   451  S1=   0  S4=  39  surrogate=   34
+   org.apache:thrift                   [t25]  N=    55  S1=   4  S4=   8  surrogate=    3
+   org.apache:thrift                   [t50]  N=    55  S1=  12  S4=  12  surrogate=    4
+   org.apache:thrift                   [t75]  N=    55  S1=  12  S4=  14  surrogate=    0
+   org.apache:validator                [t75]  N=    61  S1=  15  S4=  13  surrogate=   21
+   org.apache:vfs                      [t50]  N=   269  S1=  36  S4=  63  surrogate=   10
+   org.apache:vfs                      [t75]  N=   269  S1=  40  S4=  52  surrogate=   15
+   org.apache:zookeeper                [t25]  N=   196  S1=  30  S4=  46  surrogate=    0
+   org.apache:zookeeper                [t50]  N=   196  S1=  50  S4=  38  surrogate=   14
+   org.apache:zookeeper                [t75]  N=   196  S1=  56  S4=  46  surrogate=  144
 
 [Stage 4] Deriving empirical weights via point-biserial ...
 [Stage 4] Empirical weights diverge from theoretical (max diff > 0.05); using empirical.
 [Stage 4] Weights (in use):
-   S1_severity          theoretical=0.30  derived=0.15  chosen=0.15
-   S2_debt              theoretical=0.20  derived=0.15  chosen=0.15
-   S3_smells            theoretical=0.05  derived=0.16  chosen=0.16
-   S4_bugfix            theoretical=0.25  derived=0.23  chosen=0.23
-   S5_churn             theoretical=0.15  derived=0.16  chosen=0.16
-   S6_contributors      theoretical=0.05  derived=0.15  chosen=0.15
+   S1_severity          theoretical=0.30  derived=0.17  chosen=0.17
+   S2_debt              theoretical=0.20  derived=0.14  chosen=0.14
+   S3_smells            theoretical=0.05  derived=0.15  chosen=0.15
+   S4_bugfix            theoretical=0.25  derived=0.20  chosen=0.20
+   S5_churn             theoretical=0.15  derived=0.18  chosen=0.18
+   S6_contributors      theoretical=0.05  derived=0.16  chosen=0.16
 
-[Stage 4] Scoring + thresholding per project ...
+[Stage 4] Scoring + thresholding per (project, snapshot) ...
 
-[Stage 4] Per-project label statistics:
-                   project_id  n_files  n_positive  positive_rate_pct  n_s1_only  n_s4_only  n_both_static_history  threshold_used  min_positives_satisfied
-           org.apache:archiva      856         113              13.20         19         69                    103             0.5                        1
-             org.apache:batik     1277         176              13.78         30         57                    162             0.5                        1
-              org.apache:bcel      405          73              18.02         11         32                     72             0.5                        1
-           org.apache:cayenne      962         145              15.07         94         76                    130             0.5                        1
-            org.apache:cocoon     2794         464              16.61         18        284                    437             0.5                        1
-             org.apache:codec       58           9              15.52          0          1                      8             0.5                        1
-       org.apache:commons-cli       67          12              17.91          0          3                     12             0.5                        1
-org.apache:commons-fileupload       28           6              21.43          0          1                      6             0.5                        1
-     org.apache:commons-jelly      176          14               7.95          0          5                     14             0.5                        1
-      org.apache:commons-jexl      138          19              13.77          0          9                     17             0.5                        1
-     org.apache:configuration      226          32              14.16          3         15                     31             0.5                        1
-            org.apache:daemon       15           4              26.67          3          1                      4             0.4                        0
-              org.apache:dbcp       57          14              24.56         11          1                     14             0.5                        1
-          org.apache:digester      162          26              16.05          0          4                     26             0.5                        1
-             org.apache:felix     2084         365              17.51        255        115                    342             0.5                        1
-              org.apache:hive     2796         400              14.31        227         78                    385             0.5                        1
-        org.apache:httpclient      545          43               7.89          6          5                     43             0.5                        1
-          org.apache:httpcore      608          97              15.95          1         48                     93             0.5                        1
-               org.apache:net      195          25              12.82         27         11                     24             0.5                        1
-            org.apache:thrift       55          10              18.18          2          4                      9             0.5                        1
-               org.apache:vfs      269          44              16.36         12         21                     40             0.5                        1
-         org.apache:zookeeper      196          35              17.86         21         11                     32             0.5                        1
+[Stage 4] Per-(project, snapshot) label statistics:
+                   project_id snapshot_id  n_files  n_positive  positive_rate_pct  n_s1_only  n_s4_only  n_both_static_history  threshold_used  min_positives_satisfied
+           org.apache:archiva         t25      856         131              15.30          6        111                    118            0.50                        1
+           org.apache:archiva         t50      856         113              13.20         19         69                    103            0.50                        1
+           org.apache:archiva         t75      856         122              14.25         16         73                    109            0.50                        1
+             org.apache:batik         t25     1277         170              13.31          7         45                    156            0.50                        1
+             org.apache:batik         t50     1277         178              13.94         30         57                    164            0.50                        1
+             org.apache:batik         t75     1277         216              16.91         53         87                    201            0.50                        1
+              org.apache:bcel         t50      405          74              18.27         11         32                     73            0.50                        1
+           org.apache:cayenne         t25      962         133              13.83         98        104                    127            0.50                        1
+           org.apache:cayenne         t50      962         147              15.28         94         76                    132            0.50                        1
+           org.apache:cayenne         t75      962         163              16.94         91        112                    138            0.50                        1
+            org.apache:cocoon         t25     2794         402              14.39          6        116                    380            0.50                        1
+            org.apache:cocoon         t50     2794         432              15.46         18        284                    405            0.50                        1
+            org.apache:cocoon         t75     2794         424              15.18        217        129                    413            0.50                        1
+             org.apache:codec         t50       58           9              15.52          0          1                      8            0.50                        1
+       org.apache:collections         t25      525          92              17.52          1         37                     85            0.50                        1
+       org.apache:collections         t75      525          82              15.62          3         35                     78            0.50                        1
+       org.apache:commons-cli         t50       67          11              16.42          0          3                     11            0.50                        1
+org.apache:commons-fileupload         t50       28           6              21.43          0          1                      6            0.50                        1
+        org.apache:commons-io         t75      117          15              12.82          9         14                     13            0.50                        1
+     org.apache:commons-jelly         t50      176          13               7.39          0          5                     13            0.50                        1
+     org.apache:commons-jelly         t75      176          19              10.80          0          7                     17            0.50                        1
+      org.apache:commons-jexl         t50      138          19              13.77          0          9                     17            0.50                        1
+      org.apache:commons-jexl         t75      138          19              13.77          9          7                     17            0.50                        1
+     org.apache:configuration         t25      226          38              16.81          0         14                     35            0.50                        1
+     org.apache:configuration         t50      226          32              14.16          3         15                     31            0.50                        1
+     org.apache:configuration         t75      226          33              14.60          4         15                     32            0.50                        1
+            org.apache:daemon         t50       15           4              26.67          3          1                      4            0.40                        0
+              org.apache:dbcp         t50       57          14              24.56         11          1                     14            0.50                        1
+              org.apache:dbcp         t75       57          13              22.81         10          1                     13            0.50                        1
+          org.apache:digester         t25      162          28              17.28          0          2                     28            0.50                        1
+          org.apache:digester         t50      162          26              16.05          0          4                     26            0.50                        1
+          org.apache:digester         t75      162          26              16.05          0          3                     26            0.50                        1
+             org.apache:felix         t25     2084         346              16.60        272         69                    327            0.50                        1
+             org.apache:felix         t50     2084         374              17.95        255        115                    351            0.50                        1
+             org.apache:felix         t75     2084         362              17.37        277        140                    337            0.50                        1
+              org.apache:hive         t25     2796         399              14.27        172         50                    388            0.50                        1
+              org.apache:hive         t50     2796         400              14.31        227         78                    385            0.50                        1
+              org.apache:hive         t75     2796         416              14.88        227         91                    389            0.50                        1
+        org.apache:httpclient         t25      545          69              12.66          0          2                     69            0.50                        1
+        org.apache:httpclient         t50      545          43               7.89          6          5                     43            0.50                        1
+        org.apache:httpclient         t75      545          70              12.84         11         10                     69            0.50                        1
+          org.apache:httpcore         t25      608          87              14.31          1         38                     82            0.50                        1
+          org.apache:httpcore         t50      608          86              14.14          1         48                     82            0.50                        1
+          org.apache:httpcore         t75      608          56               9.21         16         28                     55            0.50                        1
+               org.apache:net         t25      195          27              13.85         23          8                     23            0.50                        1
+               org.apache:net         t50      195          25              12.82         27         11                     24            0.50                        1
+         org.apache:santuario         t25      451          62              13.75          0          1                     62            0.50                        1
+            org.apache:thrift         t25       55          14              25.45          3          5                     11            0.45                        1
+            org.apache:thrift         t50       55          11              20.00          2          4                     10            0.50                        1
+            org.apache:thrift         t75       55          13              23.64          3          6                     11            0.50                        1
+         org.apache:validator         t75       61          15              24.59          8          0                     15            0.50                        1
+               org.apache:vfs         t50      269          43              15.99         12         21                     39            0.50                        1
+               org.apache:vfs         t75      269          44              16.36         10         12                     40            0.50                        1
+         org.apache:zookeeper         t25      196          41              20.92          8         11                     39            0.50                        1
+         org.apache:zookeeper         t50      196          35              17.86         21         11                     32            0.50                        1
+         org.apache:zookeeper         t75      196          39              19.90         25         12                     35            0.50                        1
 
-[Stage 4] Overall positive rate : 15.22%  (2,126 of 13,969)
-[Stage 4] WARNING: 1 project(s) have < 5 positives even at lowest threshold:
+[Stage 4] Overall positive rate : 15.10%  (6,281 of 41,605)
+[Stage 4] WARNING: 1 (project, snapshot) rows have < 5 positives even at lowest threshold:
        project_id  n_positive  threshold_used
 org.apache:daemon           4             0.4
 
-[Stage 4] Total elapsed : 2.6s
+[Stage 4] Total elapsed : 6.6s
 [Stage 4] Complete.

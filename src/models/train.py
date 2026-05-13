@@ -36,7 +36,7 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
 )
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -167,11 +167,16 @@ def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray) -> dict[str, float]:
 # ---------------------------------------------------------------------------
 # Data prep
 # ---------------------------------------------------------------------------
-def load_dataset() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
-    """Return (X, y, project_id) from dataset_final.parquet.
+def load_dataset() -> tuple[pd.DataFrame, pd.Series, pd.Series, pd.Series]:
+    """Return (X, y, project_id, file_group) from dataset_final.parquet.
 
-    Uses the 27 feature columns declared in config.ALL_FEATURES in that
-    exact order so train and inference paths agree.
+    ``file_group`` is ``project_id + "@" + basename`` -- the grouping key
+    used by GroupKFold so all snapshots of the same file land in the
+    same fold (preventing memorisation leakage when the dataset has
+    multiple snapshots per file).
+
+    For single-snapshot data ``file_group`` is just a unique label per
+    row, so GroupKFold degenerates to plain stratified k-fold.
     """
     df = pd.read_parquet(PROCESSED_DATA_DIR / "dataset_final.parquet")
     missing = [c for c in ALL_FEATURES if c not in df.columns]
@@ -180,7 +185,8 @@ def load_dataset() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     X = df[list(ALL_FEATURES)].copy()
     y = df[LABEL_COL].astype(int)
     proj = df["project_id"]
-    return X, y, proj
+    file_group = df["project_id"].astype(str) + "@" + df["basename"].astype(str)
+    return X, y, proj, file_group
 
 
 # ---------------------------------------------------------------------------
@@ -223,12 +229,25 @@ def stratified_kfold_cv(
     n_splits: int = CV_FOLDS,
     *,
     params: Optional[dict[str, Any]] = None,
+    groups: Optional[pd.Series] = None,
 ) -> list[FoldResult]:
-    """Run stratified K-fold CV for one model. F1 at the standard 0.5 threshold."""
+    """Run K-fold CV for one model. F1 at the 0.5 threshold.
+
+    When ``groups`` is provided, uses ``StratifiedGroupKFold`` so all
+    rows sharing a group label (e.g. all snapshots of a file) land in
+    the same fold. This is required for multi-snapshot datasets to
+    prevent leakage of the same file between train and test.
+    """
     yv = np.asarray(y, dtype=int)
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
+    if groups is not None and groups.nunique() < len(y):
+        splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
+        split_iter = splitter.split(X, yv, groups.values)
+    else:
+        splitter = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
+        split_iter = splitter.split(X, yv)
+
     out: list[FoldResult] = []
-    for fold, (tr, te) in enumerate(skf.split(X, yv), start=1):
+    for fold, (tr, te) in enumerate(split_iter, start=1):
         X_tr = X.iloc[tr]
         X_te = X.iloc[te]
         y_tr = yv[tr]

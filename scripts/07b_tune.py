@@ -34,7 +34,7 @@ def main() -> None:
     print(f"[Stage 7b] Inner folds  : {TUNING_INNER_CV_FOLDS}")
     print(f"[Stage 7b] Objective    : PR-AUC (Saito & Rehmsmeier 2015)")
 
-    X, y, _ = load_dataset()
+    X, y, _, file_group = load_dataset()
     print(f"[Stage 7b] Dataset      : rows={len(X):,}  feats={X.shape[1]}  positives={int(y.sum())}")
 
     rows: list[dict] = []
@@ -42,7 +42,7 @@ def main() -> None:
         t1 = time.time()
         print(f"\n[Stage 7b] Tuning {model_name} ...")
         try:
-            result = tune_model(model_name, X, y)
+            result = tune_model(model_name, X, y, groups=file_group)
         except Exception as e:
             print(f"   FAILED: {type(e).__name__}: {e}")
             continue

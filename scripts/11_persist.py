@@ -109,7 +109,7 @@ def main() -> None:
     print(f"[Stage 11] Tuned params: {params}")
 
     # Load full corpus + refit
-    X, y, _ = load_dataset()
+    X, y, _, _ = load_dataset()
     print(f"[Stage 11] Refitting on full corpus: rows={len(X):,} feats={X.shape[1]}")
 
     scaler = StandardScaler()

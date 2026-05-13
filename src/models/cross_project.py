@@ -60,24 +60,39 @@ def _project_level_features(
     X: pd.DataFrame,
     y: pd.Series,
     proj: pd.Series,
+    file_group: Optional[pd.Series] = None,
 ) -> pd.DataFrame:
-    """Return a DataFrame indexed by project_id with columns
-    ``[log_n_files, log_pre_commits, positive_rate]``.
+    """Per-project features ``[log_n_files, log_pre_commits, positive_rate]``.
 
-    ``log_pre_commits`` uses ``total_commits_pre`` summed per project
-    (already log1p'd in stage 6, so we exponentiate first then re-log
-    after summing). ``positive_rate`` comes from the labels supplied.
+    For multi-snapshot data, ``file_group`` (``project@basename``) is
+    used to count distinct files per project. ``total_commits_pre`` is
+    averaged over rows then exponentiated; ``positive_rate`` is the
+    pooled mean of ``y``. Each value is **invariant** to how many
+    snapshots a file appears in, so similarity vectors are not
+    inflated by snapshot count.
     """
     df = X[["total_commits_pre"]].copy()
     df["project_id"] = proj.values
     df["y"] = np.asarray(y, dtype=int)
-    # total_commits_pre is log1p-transformed in stage 6; reverse it for summing.
     df["raw_commits"] = np.expm1(df["total_commits_pre"])
+    if file_group is not None:
+        df["file_group"] = file_group.values
     grp = df.groupby("project_id")
+
+    if file_group is not None:
+        # Distinct files per project (independent of snapshot count)
+        n_files = grp["file_group"].nunique().astype(float)
+        # Mean commits per row, scaled back to a representative count
+        mean_raw_commits = grp["raw_commits"].mean()
+        log_pre_commits = np.log1p(mean_raw_commits * n_files)
+    else:
+        n_files = grp.size().astype(float)
+        log_pre_commits = np.log1p(grp["raw_commits"].sum())
+
     out = pd.DataFrame(
         {
-            "log_n_files": np.log1p(grp.size().astype(float)),
-            "log_pre_commits": np.log1p(grp["raw_commits"].sum()),
+            "log_n_files": np.log1p(n_files),
+            "log_pre_commits": log_pre_commits,
             "positive_rate": grp["y"].mean(),
         }
     )
@@ -188,8 +203,8 @@ def lopo_cv(
         keep small projects (e.g. daemon with 4 positives) as training-
         only data per item 1 of the May 13 enhancements.
     """
-    X, y, proj = load_dataset()
-    proj_features_all = _project_level_features(X, y, proj)
+    X, y, proj, file_group = load_dataset()
+    proj_features_all = _project_level_features(X, y, proj, file_group=file_group)
 
     projects = sorted(proj.unique())
     skip = set(skip_test_projects)

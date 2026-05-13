@@ -270,7 +270,7 @@ def fig_09_threshold_curve(best_model: str, best_params: dict) -> Path:
     from sklearn.model_selection import StratifiedKFold
     from src.models.train import _make_model, load_dataset
 
-    X, y, _ = load_dataset()
+    X, y, _, _ = load_dataset()
     yv = np.asarray(y, dtype=int)
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     thresholds = np.arange(0.05, 0.80, 0.01)
@@ -362,7 +362,7 @@ def fig_11_shap_best_model(best_model: str, best_params: dict, sample_size: int 
     import shap
     from src.models.train import _make_model, load_dataset
 
-    X, y, _ = load_dataset()
+    X, y, _, _ = load_dataset()
     yv = np.asarray(y, dtype=int)
     est = _make_model(best_model, best_params, y_train=yv)
     est.fit(X, yv)
@@ -377,8 +377,11 @@ def fig_11_shap_best_model(best_model: str, best_params: dict, sample_size: int 
 
     explainer = shap.TreeExplainer(est)
     shap_values = explainer.shap_values(X_shap)
-    if isinstance(shap_values, list):  # multi-class case
+    if isinstance(shap_values, list):  # legacy multi-class list-of-arrays
         shap_values = shap_values[1]
+    shap_values = np.asarray(shap_values)
+    if shap_values.ndim == 3:  # newer SHAP returns (n, n_feat, n_classes)
+        shap_values = shap_values[..., 1]
 
     mean_abs = np.abs(shap_values).mean(axis=0)
     top_idx = np.argsort(mean_abs)[::-1][:15]

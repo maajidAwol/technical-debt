@@ -182,8 +182,8 @@ def main() -> None:
 
     snaps = load_snapshots(snap_path)
     eligible = snaps[snaps["eligible"]].copy()
-    projects = eligible["project_id"].tolist()
-    print(f"[Stage 3] Eligible projects    : {len(projects)}")
+    projects = sorted(eligible["project_id"].unique().tolist())
+    print(f"[Stage 3] Distinct eligible projects: {len(projects)} (across {len(eligible)} (project, snapshot) rows)")
 
     with get_connection() as conn:
         # --- Step 1: basename collision resolution -------------------------

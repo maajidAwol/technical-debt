@@ -94,18 +94,22 @@ def main() -> None:
     print(f"   changes      : {len(data['changes']):>10,}")
     print(f"   sonar_issues : {len(data['sonar_issues']):>10,}")
 
-    # --- Build per-project signals (incl. surrogate) -----------------------
-    print("\n[Stage 4] Computing per-project signals ...")
+    # --- Build per-(project, snapshot) signals (incl. surrogate) ----------
+    print("\n[Stage 4] Computing per-(project, snapshot) signals ...")
     parts: list[pd.DataFrame] = []
-    for _, row in eligible.sort_values("project_id").iterrows():
+    for _, row in eligible.sort_values(["project_id", "snapshot_id"]).iterrows():
         pid = row["project_id"]
+        sid = row["snapshot_id"]
         t = row["snapshot_date"]
         sub = compute_dual_signal_signals(
             pid, t, data["commits"], data["changes"], data["sonar_issues"]
         )
+        # Tag rows with the snapshot identifier; project_id is set by the
+        # labeling module already.
+        sub["snapshot_id"] = sid
         parts.append(sub)
         print(
-            f"   {pid:<35}  N={len(sub):>6}  "
+            f"   {pid:<35} [{sid}]  N={len(sub):>6}  "
             f"S1={int(sub['S1_severity'].sum()):>4}  "
             f"S4={int(sub['S4_bugfix'].sum()):>4}  "
             f"surrogate={int(sub['future_bugfix_count'].sum()):>5}"
@@ -163,10 +167,12 @@ def main() -> None:
     comparison.to_csv(PROCESSED_DATA_DIR / "weight_comparison.csv", index=False)
 
     # --- Compute labels using chosen weights -------------------------------
-    print("\n[Stage 4] Scoring + thresholding per project ...")
+    print("\n[Stage 4] Scoring + thresholding per (project, snapshot) ...")
     # Drop surrogate before label scoring so it never leaks into the saved frame.
     signals_only = signals_all.drop(columns=["future_bugfix_count"])
-    labeled = compute_dual_signal_labels(signals_only, chosen_weights)
+    labeled = compute_dual_signal_labels(
+        signals_only, chosen_weights, group_by=("project_id", "snapshot_id")
+    )
     assert "future_bugfix_count" not in labeled.columns, "surrogate leaked into labels"
     assert set(labeled["is_high_risk"].unique()) <= {0, 1}
 
@@ -177,7 +183,7 @@ def main() -> None:
     labeled["_history_any"] = history_flag
 
     stats_rows = []
-    for pid, sub in labeled.groupby("project_id"):
+    for (pid, sid), sub in labeled.groupby(["project_id", "snapshot_id"]):
         s1_only = int(((sub["S1_severity"] == 1) & (sub["_history_any"] == 0)).sum())
         s4_only = int(((sub["S4_bugfix"] == 1) & (sub["_static_any"] == 0)).sum())
         both = int(((sub["_static_any"] == 1) & (sub["_history_any"] == 1) & (sub["is_high_risk"] == 1)).sum())
@@ -185,6 +191,7 @@ def main() -> None:
         stats_rows.append(
             {
                 "project_id": pid,
+                "snapshot_id": sid,
                 "n_files": int(len(sub)),
                 "n_positive": int(sub["is_high_risk"].sum()),
                 "positive_rate_pct": round(100 * float(sub["is_high_risk"].mean()), 2),
@@ -195,16 +202,19 @@ def main() -> None:
                 "min_positives_satisfied": int(sub["min_positives_satisfied"].iloc[0]),
             }
         )
-    stats = pd.DataFrame(stats_rows).sort_values("project_id").reset_index(drop=True)
+    stats = pd.DataFrame(stats_rows).sort_values(["project_id", "snapshot_id"]).reset_index(drop=True)
     stats.to_csv(PROCESSED_DATA_DIR / "label_statistics.csv", index=False)
 
-    # Concise per-project summary for the thesis tables/ folder.
-    label_summary = stats[["project_id", "n_files", "n_positive", "positive_rate_pct", "threshold_used"]].copy()
+    # Concise per-(project, snapshot) summary for the thesis tables/ folder.
+    label_summary = stats[
+        ["project_id", "snapshot_id", "n_files", "n_positive", "positive_rate_pct", "threshold_used"]
+    ].copy()
     label_summary.to_csv(TABLES_DIR / "label_summary.csv", index=False)
 
     # --- Persist labels (drop helper cols) ---------------------------------
     keep_cols = [
         "project_id",
+        "snapshot_id",
         "basename",
         "is_high_risk",
         "risk_score",
@@ -214,7 +224,7 @@ def main() -> None:
     labels_to_save.to_parquet(PROCESSED_DATA_DIR / "labels.parquet", index=False)
 
     # --- Stage summary -----------------------------------------------------
-    print("\n[Stage 4] Per-project label statistics:")
+    print("\n[Stage 4] Per-(project, snapshot) label statistics:")
     with pd.option_context("display.width", 200, "display.max_rows", None):
         print(stats.to_string(index=False))
 
@@ -224,7 +234,7 @@ def main() -> None:
 
     low_pos = stats[stats["min_positives_satisfied"] == 0]
     if len(low_pos) > 0:
-        print(f"[Stage 4] WARNING: {len(low_pos)} project(s) have < 5 positives even at lowest threshold:")
+        print(f"[Stage 4] WARNING: {len(low_pos)} (project, snapshot) rows have < 5 positives even at lowest threshold:")
         print(low_pos[["project_id", "n_positive", "threshold_used"]].to_string(index=False))
 
     print(f"\n[Stage 4] Total elapsed : {time.time() - t0:.1f}s")

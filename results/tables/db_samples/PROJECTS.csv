@@ -1,0 +1,4 @@
+PROJECT_KEY,GIT_LINK,JIRA_LINK,SONAR_PROJECT_KEY,PROJECT_ID
+batik,https://github.com/apache/batik,https://issues.apache.org/jira/projects/BATIK,org.apache:batik,org.apache:batik
+commons-bcel,https://github.com/apache/commons-bcel,https://issues.apache.org/jira/projects/BCEL,org.apache:bcel,org.apache:bcel
+commons-beanutils,https://github.com/apache/commons-beanutils,https://issues.apache.org/jira/projects/BEANUTILS,org.apache:beanutils,org.apache:beanutils

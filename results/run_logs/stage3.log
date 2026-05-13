@@ -1,16 +1,16 @@
-[Stage 3] Eligible projects    : 22
-[Stage 3] (1/7) Resolving basename collisions ...       14,834 basenames (kept=13,969, dropped=865)  (2.8s)
+[Stage 3] Distinct eligible projects: 26 (across 56 (project, snapshot) rows)
+[Stage 3] (1/7) Resolving basename collisions ...       16,078 basenames (kept=15,123, dropped=955)  (15.3s)
 [Stage 3] (2/7) GIT_COMMITS ... C:\Users\maaji\Desktop\technical-debt\src\data\clean.py:108: UserWarning: This pattern is interpreted as a regular expression, and has match groups. To actually get the groups, use str.extract.
   return messages.fillna("").astype(str).str.contains(_BUGFIX_REGEX, regex=True)
-     103,905 rows  (1.8s)
-[Stage 3] (3/7) GIT_COMMITS_CHANGES (Java only) ...      526,035 rows  (7.2s)
-[Stage 3] (4/7) SONAR_ISSUES (Java only) ...      680,794 rows  (10.2s)
-[Stage 3] (5/7) SONAR_MEASURES (with dates) ...       54,345 rows  (1.9s)
-[Stage 3] (6/7) SZZ (with dates) ...       49,202 rows  (0.9s)
-[Stage 3] (7/7) JIRA_ISSUES ...       58,085 rows  (3.8s)
+     115,365 rows  (2.2s)
+[Stage 3] (3/7) GIT_COMMITS_CHANGES (Java only) ...      580,411 rows  (8.3s)
+[Stage 3] (4/7) SONAR_ISSUES (Java only) ...      705,254 rows  (11.3s)
+[Stage 3] (5/7) SONAR_MEASURES (with dates) ...       63,078 rows  (2.2s)
+[Stage 3] (6/7) SZZ (with dates) ...       51,819 rows  (0.6s)
+[Stage 3] (7/7) JIRA_ISSUES ...       60,248 rows  (2.8s)
 [Stage 3] Filtering per-file frames to resolved basenames ...
-   git_commits_changes :    526,035 ->    301,679 (42.7% removed)
-   sonar_issues        :    680,794 ->    564,423 (17.1% removed)
+   git_commits_changes :    580,411 ->    334,748 (42.3% removed)
+   sonar_issues        :    705,254 ->    585,895 (16.9% removed)
 [Stage 3] Writing parquet outputs ...
 
 [Stage 3] Collision report (data/processed/collision_report.csv):
@@ -21,8 +21,10 @@
            org.apache:cayenne      968     962          6           0.62
             org.apache:cocoon     2878    2794         84           2.92
              org.apache:codec       58      58          0           0.00
+       org.apache:collections      550     525         25           4.55
        org.apache:commons-cli       67      67          0           0.00
 org.apache:commons-fileupload       28      28          0           0.00
+        org.apache:commons-io      122     117          5           4.10
      org.apache:commons-jelly      336     176        160          47.62
       org.apache:commons-jexl      138     138          0           0.00
      org.apache:configuration      226     226          0           0.00
@@ -34,11 +36,13 @@ org.apache:commons-fileupload       28      28          0           0.00
         org.apache:httpclient      577     545         32           5.55
           org.apache:httpcore      625     608         17           2.72
                org.apache:net      211     195         16           7.58
+         org.apache:santuario      511     451         60          11.74
             org.apache:thrift       92      55         37          40.22
+         org.apache:validator       61      61          0           0.00
                org.apache:vfs      269     269          0           0.00
          org.apache:zookeeper      196     196          0           0.00
 
-[Stage 3] Basename drop rate: median=0.7%  max=47.6%
+[Stage 3] Basename drop rate: median=1.7%  max=47.6%
 
-[Stage 3] Total elapsed : 36.7s
+[Stage 3] Total elapsed : 44.5s
 [Stage 3] Complete.

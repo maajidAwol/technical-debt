@@ -1,7 +1,7 @@
 signal,theoretical,derived,chosen,difference,interpretation
-S1_severity,0.3,0.15,0.15,-0.15,substantially weaker empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
-S2_debt,0.2,0.15,0.15,-0.05,modestly weaker empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
-S3_smells,0.05,0.16,0.16,0.11,substantially stronger empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
-S4_bugfix,0.25,0.23,0.23,-0.02,matches theoretical baseline (no meaningful divergence)
-S5_churn,0.15,0.16,0.16,0.01,matches theoretical baseline (no meaningful divergence)
-S6_contributors,0.05,0.15,0.15,0.1,noticeably stronger empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
+S1_severity,0.3,0.17,0.17,-0.13,substantially weaker empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
+S2_debt,0.2,0.14,0.14,-0.06,noticeably weaker empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
+S3_smells,0.05,0.15,0.15,0.1,noticeably stronger empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
+S4_bugfix,0.25,0.2,0.2,-0.05,modestly weaker empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
+S5_churn,0.15,0.18,0.18,0.03,modestly stronger empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline
+S6_contributors,0.05,0.16,0.16,0.11,substantially stronger empirical correlation with post-snapshot bug-fix activity than Kamei 2013 baseline

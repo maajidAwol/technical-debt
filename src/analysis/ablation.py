@@ -28,8 +28,16 @@ from src.models.train import (  # noqa: E402
 )
 
 
-def _run(model_name: str, X: pd.DataFrame, y: pd.Series, params: dict | None) -> dict:
-    results = stratified_kfold_cv(model_name, X, y, n_splits=CV_FOLDS, params=params)
+def _run(
+    model_name: str,
+    X: pd.DataFrame,
+    y: pd.Series,
+    params: dict | None,
+    groups: pd.Series | None = None,
+) -> dict:
+    results = stratified_kfold_cv(
+        model_name, X, y, n_splits=CV_FOLDS, params=params, groups=groups
+    )
     df = fold_results_to_frame(results)
     return {
         "f1": float(df["f1"].mean()),
@@ -45,11 +53,11 @@ def run_family_ablation(
     families: dict[str, list[str]] = FEATURE_FAMILIES,
 ) -> pd.DataFrame:
     """Return the 11-row ablation table for ``model_name``."""
-    X, y, _ = load_dataset()
+    X, y, _, file_group = load_dataset()
     rows: list[dict] = []
 
     # Baseline
-    base = _run(model_name, X[list(ALL_FEATURES)], y, params)
+    base = _run(model_name, X[list(ALL_FEATURES)], y, params, groups=file_group)
     rows.append({"mode": "all_features", "family": "(all)", "n_features": len(ALL_FEATURES), **base})
 
     # Per-family only / leave-out
@@ -58,10 +66,10 @@ def run_family_ablation(
         only_X = X[cols_in]
         leave_X = X[[c for c in ALL_FEATURES if c not in cols_in]]
 
-        only = _run(model_name, only_X, y, params)
+        only = _run(model_name, only_X, y, params, groups=file_group)
         rows.append({"mode": "only_this_family", "family": fam, "n_features": len(cols_in), **only})
 
-        leave = _run(model_name, leave_X, y, params)
+        leave = _run(model_name, leave_X, y, params, groups=file_group)
         rows.append({"mode": "leave_out_family", "family": fam, "n_features": leave_X.shape[1], **leave})
 
     out = pd.DataFrame(rows)

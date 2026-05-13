@@ -56,7 +56,7 @@ def main() -> None:
     print(f"[Stage 7] CV folds  : {CV_FOLDS}")
     print(f"[Stage 7] Models    : {list(MODEL_ORDER)}")
 
-    X, y, _ = load_dataset()
+    X, y, _, file_group = load_dataset()
     pos_rate = 100 * float(y.mean())
     print(f"[Stage 7] Dataset   : rows={len(X):,}  feats={X.shape[1]}  positives={int(y.sum())} ({pos_rate:.2f}%)")
 
@@ -65,7 +65,9 @@ def main() -> None:
     for model_name in MODEL_ORDER:
         t1 = time.time()
         params = tuned_params.get(model_name) if args.tuned else None
-        results = stratified_kfold_cv(model_name, X, y, n_splits=CV_FOLDS, params=params)
+        results = stratified_kfold_cv(
+            model_name, X, y, n_splits=CV_FOLDS, params=params, groups=file_group
+        )
         if not results:
             print(f"   {model_name:<22}  SKIPPED (estimator unavailable)")
             continue

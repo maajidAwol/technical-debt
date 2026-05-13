@@ -325,24 +325,32 @@ def apply_label_thresholding(
 def compute_dual_signal_labels(
     signals_df: pd.DataFrame,
     weights: Dict[str, float],
+    group_by: Tuple[str, ...] = ("project_id",),
 ) -> pd.DataFrame:
-    """Score and threshold per project. Returns the labels.parquet row set.
+    """Score and threshold per group. Returns the labels.parquet row set.
 
-    ``signals_df`` must contain columns ``project_id``, ``basename``, and
+    ``signals_df`` must contain ``group_by`` columns plus ``basename`` and
     ``S1_severity..S6_contributors``. The output adds ``risk_score``,
     ``is_high_risk``, ``threshold_used``, ``min_positives_satisfied``.
+
+    Use ``group_by=("project_id",)`` for single-snapshot pipelines and
+    ``group_by=("project_id", "snapshot_id")`` for multi-snapshot mode so
+    each (project, snapshot) gets its own min-positives fallback.
     """
     score = np.zeros(len(signals_df), dtype="float64")
     for s, w in weights.items():
         score += float(w) * signals_df[s].astype("float64").values
-    out = signals_df[["project_id", "basename", *SIGNAL_COLUMNS]].copy()
+
+    keep_cols = list(group_by) + ["basename", *SIGNAL_COLUMNS]
+    out = signals_df[keep_cols].copy()
     out["risk_score"] = score
 
     is_high = np.zeros(len(out), dtype="int64")
     threshold_used = np.zeros(len(out), dtype="float64")
     min_positives_ok = np.ones(len(out), dtype="int64")
     out = out.reset_index(drop=True)
-    for _, idx in out.groupby("project_id").groups.items():
+    group_keys = list(group_by) if len(group_by) > 1 else group_by[0]
+    for _, idx in out.groupby(group_keys).groups.items():
         positions = np.asarray(idx)
         rs = out.loc[positions, "risk_score"]
         labels, thr, ok = apply_label_thresholding(rs)

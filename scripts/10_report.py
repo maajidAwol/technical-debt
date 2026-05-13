@@ -61,7 +61,7 @@ def _best_model_name() -> str:
 # Permutation importance (within-project, single fold for speed)
 # ---------------------------------------------------------------------------
 def _permutation_importance_all_models(tuned_params: dict[str, dict]) -> pd.DataFrame:
-    X, y, _ = load_dataset()
+    X, y, _, _ = load_dataset()
     yv = np.asarray(y, dtype=int)
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
     train_idx, test_idx = next(iter(skf.split(X, yv)))
@@ -99,7 +99,7 @@ def _permutation_importance_all_models(tuned_params: dict[str, dict]) -> pd.Data
 # Pooled LOPO predictions per model for fig_12
 # ---------------------------------------------------------------------------
 def _pooled_lopo_curves(tuned_params: dict[str, dict]) -> dict[str, dict]:
-    X, y, proj = load_dataset()
+    X, y, proj, _ = load_dataset()
     proj_features_all = _project_level_features(X, y, proj)
     projects = sorted(proj.unique())
 

@@ -22,7 +22,7 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold, StratifiedKFold
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from config import (  # noqa: E402
@@ -67,13 +67,30 @@ def _suggest_params(trial, model_name: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Inner-CV PR-AUC objective
 # ---------------------------------------------------------------------------
-def _objective_factory(model_name: str, X: pd.DataFrame, y: np.ndarray, n_splits: int):
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
+def _objective_factory(
+    model_name: str,
+    X: pd.DataFrame,
+    y: np.ndarray,
+    n_splits: int,
+    groups: Optional[np.ndarray] = None,
+):
+    """Build an Optuna PR-AUC objective.
+
+    If ``groups`` is provided and has fewer unique values than rows,
+    uses ``StratifiedGroupKFold`` so all rows sharing a group label
+    land in the same fold (no file-id leakage for multi-snapshot data).
+    """
+    if groups is not None and len(np.unique(groups)) < len(y):
+        splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
+        split_iter_fn = lambda: splitter.split(X, y, groups)
+    else:
+        splitter = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
+        split_iter_fn = lambda: splitter.split(X, y)
 
     def objective(trial) -> float:
         params = _suggest_params(trial, model_name)
         scores: list[float] = []
-        for tr, te in skf.split(X, y):
+        for tr, te in split_iter_fn():
             X_tr = X.iloc[tr]
             X_te = X.iloc[te]
             y_tr = y[tr]
@@ -104,26 +121,22 @@ def tune_model(
     n_trials: int = TUNING_TRIALS,
     inner_splits: int = TUNING_INNER_CV_FOLDS,
     timeout_s: Optional[int] = None,
+    groups: Optional[pd.Series] = None,
 ) -> dict[str, Any]:
-    """Run an Optuna study (or GridSearchCV for LR); return best params + diagnostics.
-
-    Returns
-    -------
-    dict with keys: model, best_params, best_pr_auc, n_trials_completed,
-                    n_trials_requested, inner_splits, elapsed_s, method.
-    """
+    """Run an Optuna study (or GridSearchCV for LR); return best params + diagnostics."""
     name = model_name.lower()
     yv = np.asarray(y, dtype=int)
+    groups_arr = groups.values if groups is not None else None
 
     if name == "logistic_regression":
-        return _tune_logistic_grid(X, yv, inner_splits)
+        return _tune_logistic_grid(X, yv, inner_splits, groups=groups_arr)
 
     import optuna  # local import; cheap cold-start
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     sampler = optuna.samplers.TPESampler(seed=RANDOM_STATE)
     study = optuna.create_study(direction="maximize", sampler=sampler)
-    objective = _objective_factory(model_name, X, yv, inner_splits)
+    objective = _objective_factory(model_name, X, yv, inner_splits, groups=groups_arr)
 
     t0 = time.time()
     study.optimize(objective, n_trials=n_trials, timeout=timeout_s, show_progress_bar=False)
@@ -142,22 +155,31 @@ def tune_model(
     }
 
 
-def _tune_logistic_grid(X: pd.DataFrame, y: np.ndarray, inner_splits: int) -> dict[str, Any]:
+def _tune_logistic_grid(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    inner_splits: int,
+    groups: Optional[np.ndarray] = None,
+) -> dict[str, Any]:
     """Logistic regression via GridSearchCV on C in {0.01, 0.1, 1, 10, 100} per spec."""
     t0 = time.time()
     est = _make_model("logistic_regression")
     # _make_model wraps LR in a Pipeline named ("scaler", "clf"); GridSearchCV
     # needs "clf__C" to address the inner classifier.
     param_grid = {"clf__C": [0.01, 0.1, 1, 10, 100]}
+    if groups is not None and len(np.unique(groups)) < len(y):
+        cv = StratifiedGroupKFold(n_splits=inner_splits, shuffle=True, random_state=RANDOM_STATE)
+    else:
+        cv = StratifiedKFold(n_splits=inner_splits, shuffle=True, random_state=RANDOM_STATE)
     gs = GridSearchCV(
         est,
         param_grid=param_grid,
         scoring="average_precision",
-        cv=StratifiedKFold(n_splits=inner_splits, shuffle=True, random_state=RANDOM_STATE),
+        cv=cv,
         n_jobs=-1,
         refit=False,
     )
-    gs.fit(X, y)
+    gs.fit(X, y, groups=groups)
     elapsed = time.time() - t0
     best_c = float(gs.best_params_["clf__C"])
     return {

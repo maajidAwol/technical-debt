@@ -41,7 +41,8 @@ from config import (  # noqa: E402
 )
 
 
-KEY_COLS = ["project_id", "basename"]
+KEY_COLS = ["project_id", "snapshot_id", "basename"]
+OUTPUT_KEY_COLS = ["project_id", "basename"]
 LABEL_COL = "is_high_risk"
 
 
@@ -175,6 +176,7 @@ def main() -> None:
     if missing:
         raise KeyError(f"Stage 6: missing expected feature columns: {missing}")
     df = df[KEY_COLS + ALL_FEATURES + [LABEL_COL]].copy()
+    df = df.drop(columns=["snapshot_id"], errors="ignore")
 
     # ----- NaN -> 0 across the 27 features -----
     df[ALL_FEATURES] = df[ALL_FEATURES].fillna(0)
