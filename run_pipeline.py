@@ -76,6 +76,7 @@ PIPELINE: tuple[Stage, ...] = (
     Stage("9",  "09_ablation.py",        "Feature-family ablation on best model"),
     Stage("10", "10_report.py",          "Render 12 figures + SHAP + permutation importance"),
     Stage("11", "11_persist.py",         "Persist best model + scaler + threshold + model card"),
+    Stage("13", "13_score_github.py",    "Optional: score any Apache Java GitHub repo (requires --url and --name)", optional=True),
 )
 
 
@@ -106,7 +107,12 @@ def _select_stages(args: argparse.Namespace) -> list[Stage]:
         if args.from_stage not in keys:
             raise SystemExit(f"--from: unknown stage key {args.from_stage!r}. Valid: {keys}")
         from_idx = keys.index(args.from_stage)
-    return [s for i, s in enumerate(PIPELINE) if i >= from_idx and s.key not in skip]
+    # Optional stages are excluded from the default run; they only execute
+    # when explicitly named via --only.
+    return [
+        s for i, s in enumerate(PIPELINE)
+        if i >= from_idx and s.key not in skip and not s.optional
+    ]
 
 
 def _print_header(label: str) -> None:
