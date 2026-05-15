@@ -76,6 +76,7 @@ PIPELINE: tuple[Stage, ...] = (
     Stage("9",  "09_ablation.py",        "Feature-family ablation on best model"),
     Stage("10", "10_report.py",          "Render 12 figures + SHAP + permutation importance"),
     Stage("11", "11_persist.py",         "Persist best model + scaler + threshold + model card"),
+    Stage("12b","12b_case_study.py",     "Optional: held-out case study (default: org.apache:zookeeper)", optional=True),
     Stage("13", "13_score_github.py",    "Optional: score any Apache Java GitHub repo (requires --url and --name)", optional=True),
 )
 
