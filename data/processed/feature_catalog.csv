@@ -1,0 +1,28 @@
+feature_name,family,source_table,literature_citation,rationale
+ncloc,size_complexity,SONAR_MEASURES,Nagappan ICSE 2006,Larger files accumulate more debt opportunities
+complexity,size_complexity,SONAR_MEASURES,McCabe 1976,Cyclomatic complexity increases change effort and error-proneness
+cognitive_complexity,size_complexity,SONAR_MEASURES,Campbell 2018 (SonarSource),Human-perceived complexity; hard to read = hard to maintain
+functions,size_complexity,SONAR_MEASURES,Nagappan ICSE 2006,Method count - more methods = more potential debt entry points
+classes,size_complexity,SONAR_MEASURES,Nagappan ICSE 2006,Class count - captures OO design scale
+n_code_smells,static_debt,SONAR_ISSUES,Tsoukalas JSS 2020,Maintainability violations (CODE_SMELL type)
+n_bugs,static_debt,SONAR_ISSUES,Tsoukalas JSS 2020,BUG-type issues regardless of severity
+total_debt_minutes,static_debt,SONAR_ISSUES,Tsoukalas JSS 2020,Remediation effort estimate; debt principal in minutes
+issue_density,static_debt,SONAR_ISSUES / SONAR_MEASURES,Tsoukalas JSS 2020,total_issues / ncloc; size-normalized debt intensity
+duplicated_lines_density,static_debt,SONAR_MEASURES,Fowler 1999,Duplication raises cost of propagating fixes
+total_commits_pre,historical,GIT_COMMITS,Kamei TSE 2013,Total commits touching the file before t
+code_churn_pre,historical,GIT_COMMITS_CHANGES,Kamei TSE 2013,Lifetime lines added + removed; total volatility
+recent_churn_90d,historical,GIT_COMMITS_CHANGES,Hassan ICSE 2009,Churn in last 90 days; current hotspot signal
+commit_frequency_30d,historical,GIT_COMMITS,Hassan ICSE 2009,Commits in last 30 days; recent activity level
+file_age_days,historical,GIT_COMMITS,Kamei TSE 2013,Days from first commit to t; older files carry more debt
+days_since_last_change,historical,GIT_COMMITS,Kamei TSE 2013,Days from last commit to t; stale files may need attention
+contributor_count,historical,GIT_COMMITS,Bird FSE 2011,Distinct authors before t; coordination overhead risk
+ownership_ratio,historical,GIT_COMMITS,Bird FSE 2011,max_single_author_commits / total_commits_pre; diffuse responsibility risk
+cocg_degree,graph,GIT_COMMITS_CHANGES (co-change graph),Jiang EMSE 2024,Number of co-change neighbours; architectural coupling
+cocg_pagerank,graph,GIT_COMMITS_CHANGES (co-change graph),Jiang EMSE 2024,Recursive importance via weighted PageRank
+cocg_betweenness,graph,GIT_COMMITS_CHANGES (co-change graph),Jiang EMSE 2024,Bridge status; changes here ripple to many modules
+cocg_entropy,graph,GIT_COMMITS_CHANGES (co-change graph),Ethari & Bhardwaj 2025,Shannon entropy over neighbour edge weights; high = scattered coupling
+bugfix_commits_pre,prior_defect,GIT_COMMITS (regex),Hassan ICSE 2009,Lifetime bug-fix commit count using the canonical regex
+bugfix_commits_90d,prior_defect,GIT_COMMITS (regex),Hassan ICSE 2009,Bug-fix commits last 90 days; recent defect activity
+bug_density_pre,prior_defect,GIT_COMMITS (regex),Hassan ICSE 2009,bugfix_commits_pre / total_commits_pre; normalized
+n_jira_bugs_pre,prior_defect,JIRA_ISSUES,Falessi ESEM 2020,Officially confirmed bug tickets linked to the file before t
+jira_blocker_flag,prior_defect,JIRA_ISSUES,Falessi ESEM 2020,Flag for any linked JIRA Bug with PRIORITY Blocker or Critical

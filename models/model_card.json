@@ -1,0 +1,24 @@
+{
+  "model_type": "LGBMClassifier",
+  "model_name": "lightgbm",
+  "n_features": 27,
+  "feature_families": 5,
+  "label": "dual_signal_combined_weight",
+  "threshold": 0.5,
+  "lopo_f1": 0.7261,
+  "lopo_roc_auc": 0.9679,
+  "lopo_pr_auc": 0.8871,
+  "lopo_ce_at_20": 0.8242,
+  "within_f1": 0.8686,
+  "within_pr_auc": 0.9458,
+  "training_projects": 22,
+  "training_rows": 12449,
+  "tuned_params": {
+    "n_estimators": 300,
+    "num_leaves": 86,
+    "learning_rate": 0.03184122742384427,
+    "min_child_samples": 39,
+    "feature_fraction": 0.6394239278589119
+  },
+  "date_trained": "2026-05-14"
+}

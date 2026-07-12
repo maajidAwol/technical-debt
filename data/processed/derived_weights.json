@@ -1,0 +1,9 @@
+{
+  "S1_severity": 0.15,
+  "S2_debt": 0.15,
+  "S3_smells": 0.16,
+  "S4_bugfix": 0.23,
+  "S5_churn": 0.16,
+  "S6_contributors": 0.15,
+  "_source": "empirical"
+}

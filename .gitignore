@@ -1,0 +1,19 @@
+# Virtual environment (never commit)
+venv/
+.venv/
+	
+
+# Raw data
+data/raw/
+
+# Python bytecode cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Cloned analysis-target repositories (regenerable via scripts)
+data/repos/
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/.next/
